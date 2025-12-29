@@ -1,0 +1,87 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "DEPB_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "displayName": "Dev (RelWithDebInfo)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "DEPB_ENABLE_WERROR": "OFF",
+        "DEPB_ENABLE_SANITIZERS": "OFF",
+        "DEPB_ENABLE_LTO": "OFF"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEPB_ENABLE_WERROR": "OFF",
+        "DEPB_ENABLE_SANITIZERS": "OFF"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "ASan+UBSan (Debug)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEPB_ENABLE_SANITIZERS": "ON",
+        "DEPB_ENABLE_WERROR": "OFF"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release (LTO)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEPB_ENABLE_LTO": "ON",
+        "DEPB_ENABLE_WERROR": "OFF"
+      }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI (strict)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "DEPB_ENABLE_WERROR": "ON",
+        "DEPB_ENABLE_SANITIZERS": "ON",
+        "DEPB_ENABLE_LTO": "OFF",
+        "DEPB_BUILD_TESTS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "asan", "configurePreset": "asan" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "ci", "configurePreset": "ci" }
+  ],
+  "testPresets": [
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
