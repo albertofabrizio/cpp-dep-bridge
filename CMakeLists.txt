@@ -90,13 +90,14 @@ target_sources(depbridge_core
     src/sbom/cyclonedx_writer.cpp
     src/github/dependency_submission.cpp
   PUBLIC
-    include/model/types.hpp
-    include/model/ids.hpp
-    include/model/normalize.hpp
-    include/cmake/file_api_reader.hpp
-    include/cmake/target_graph_builder.hpp
-    include/sbom/cyclonedx_writer.hpp
-    include/github/dependency_submission.hpp
+      PUBLIC
+    include/depbridge/model/types.hpp
+    include/depbridge/model/ids.hpp
+    include/depbridge/model/normalize.hpp
+    include/depbridge/cmake/file_api_reader.hpp
+    include/depbridge/cmake/target_graph_builder.hpp
+    include/depbridge/sbom/cyclonedx_writer.hpp
+    include/depbridge/github/dependency_submission.hpp
 )
 
 target_include_directories(depbridge_core

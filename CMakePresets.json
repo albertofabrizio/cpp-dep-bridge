@@ -28,6 +28,20 @@
       }
     },
     {
+      "name": "vs-dev",
+      "displayName": "VS 2022 (MSVC)",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/out/build/vs-dev",
+      "cacheVariables": {
+        "DEPB_ENABLE_WERROR": "OFF",
+        "DEPB_ENABLE_SANITIZERS": "OFF",
+        "DEPB_ENABLE_LTO": "OFF",
+        "DEPB_BUILD_TESTS": "ON",
+        "CMAKE_TOOLCHAIN_FILE": "D:/Development/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      }
+    },
+
+    {
       "name": "debug",
       "displayName": "Debug",
       "inherits": "base",
