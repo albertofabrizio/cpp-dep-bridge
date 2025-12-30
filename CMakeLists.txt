@@ -130,10 +130,7 @@ target_link_libraries(depbridge PRIVATE depbridge::core)
 
 # ---- Testing
 include(CTest)
-if(DEPB_BUILD_TESTS AND BUILD_TESTING)
+if(DEPB_BUILD_TESTS)
   enable_testing()
-  # Choose one framework later (doctest/catch2/gtest). For now just keep a placeholder.
-  add_executable(depbridge_smoke tests/smoke.cpp)
-  target_link_libraries(depbridge_smoke PRIVATE depbridge::core)
-  add_test(NAME smoke COMMAND depbridge_smoke)
+  add_subdirectory(tests)
 endif()
