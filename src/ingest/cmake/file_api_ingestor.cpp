@@ -5,10 +5,12 @@
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+#include <string>
+#include <vector>
+#include <cctype>
 
 namespace depbridge::ingest::cmake
 {
-
     using json = nlohmann::json;
     using namespace depbridge::model;
     namespace fs = std::filesystem;
@@ -47,6 +49,56 @@ namespace depbridge::ingest::cmake
             }
         }
         throw std::runtime_error("CMake File API index-*.json not found");
+    }
+
+    static bool is_noise_token(const std::string &s)
+    {
+        if (s.empty())
+            return true;
+
+        if (s.find("$<") != std::string::npos)
+            return true;
+
+        if (!s.empty() && (s[0] == '/' || s[0] == '-'))
+            return true;
+
+        return false;
+    }
+
+    static std::vector<std::string> split_ws(const std::string &s)
+    {
+        std::vector<std::string> out;
+        std::string cur;
+        for (char ch : s)
+        {
+            if (std::isspace(static_cast<unsigned char>(ch)))
+            {
+                if (!cur.empty())
+                {
+                    out.push_back(cur);
+                    cur.clear();
+                }
+            }
+            else
+            {
+                cur.push_back(ch);
+            }
+        }
+        if (!cur.empty())
+            out.push_back(cur);
+        return out;
+    }
+
+    static void push_edge(ProjectGraph &g, const TargetId &from, const std::string &raw, const std::string &ref)
+    {
+        if (is_noise_token(raw))
+            return;
+
+        DependencyEdge e;
+        e.from = from;
+        e.raw = raw;
+        e.sources.push_back(SourceRef{"cmake", ref, std::nullopt});
+        g.edges.push_back(std::move(e));
     }
 
     ProjectGraph ingest_file_api(const fs::path &build_dir,
@@ -101,23 +153,46 @@ namespace depbridge::ingest::cmake
 
                 g.targets.emplace(bt.id.value, bt);
 
-                if (tgt.contains("link"))
+                if (!tgt.contains("link"))
+                    continue;
+
+                const auto &link = tgt.at("link");
+
+                if (link.contains("libraries") && link.at("libraries").is_array())
                 {
-                    const auto &link = tgt.at("link");
-                    if (link.contains("libraries"))
+                    for (const auto &lib : link.at("libraries"))
                     {
-                        for (const auto &lib : link.at("libraries"))
+                        if (lib.is_string())
                         {
-                            DependencyEdge e;
-                            e.from = bt.id;
-                            e.raw = lib.get<std::string>();
+                            push_edge(g, bt.id, lib.get<std::string>(), "link.libraries");
+                        }
+                        else if (lib.is_object())
+                        {
+                            if (lib.contains("name") && lib.at("name").is_string())
+                            {
+                                push_edge(g, bt.id, lib.at("name").get<std::string>(), "link.libraries.name");
+                            }
+                            else if (lib.contains("path") && lib.at("path").is_string())
+                            {
+                                push_edge(g, bt.id, lib.at("path").get<std::string>(), "link.libraries.path");
+                            }
+                        }
+                    }
+                }
 
-                            e.sources.push_back(SourceRef{
-                                "cmake",
-                                "linkLibraries",
-                                std::nullopt});
+                if (link.contains("commandFragments") && link.at("commandFragments").is_array())
+                {
+                    for (const auto &frag : link.at("commandFragments"))
+                    {
+                        if (!frag.is_object())
+                            continue;
+                        if (!frag.contains("fragment") || !frag.at("fragment").is_string())
+                            continue;
 
-                            g.edges.push_back(e);
+                        const std::string fragment = frag.at("fragment").get<std::string>();
+                        for (const auto &tok : split_ws(fragment))
+                        {
+                            push_edge(g, bt.id, tok, "link.commandFragments.fragment");
                         }
                     }
                 }
