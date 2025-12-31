@@ -7,6 +7,33 @@
 
 using namespace depbridge::model;
 
+static void test_system_classification()
+{
+    ProjectGraph g;
+
+    Component sys;
+    sys.name = "kernel32";
+    sys.id = component_id_of(sys);
+    g.components[sys.id.value] = sys;
+
+    Component proj;
+    proj.name = "depbridge_core";
+    proj.origin = ComponentOrigin::project_local;
+    proj.id = component_id_of(proj);
+    g.components[proj.id.value] = proj;
+
+    Component third;
+    third.name = "fmt";
+    third.id = component_id_of(third);
+    g.components[third.id.value] = third;
+
+    classify_system_components(g);
+
+    assert(g.components[sys.id.value].origin == ComponentOrigin::system);
+    assert(g.components[proj.id.value].origin == ComponentOrigin::project_local);
+    assert(g.components[third.id.value].origin == ComponentOrigin::unknown);
+}
+
 int main()
 {
     ProjectGraph g;
@@ -28,7 +55,7 @@ int main()
 
     // Find component by name.
     bool found = false;
-    for (const auto& [_, c] : g.components)
+    for (const auto &[_, c] : g.components)
     {
         if (c.name == "depbridge_core")
         {
@@ -39,5 +66,8 @@ int main()
     assert(found);
 
     std::cout << "[unit] classify: OK\n";
+
+    test_system_classification();
+
     return 0;
 }

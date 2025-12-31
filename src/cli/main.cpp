@@ -21,6 +21,7 @@ int main(int argc, char **argv)
         auto graph = depbridge::ingest::ingest(build_dir);
         depbridge::model::normalize_graph(graph);
         depbridge::model::classify_project_local_components(graph);
+        depbridge::model::classify_system_components(graph);
         depbridge::sbom::write_cyclonedx_json(std::cout, graph);
 
         return 0;
