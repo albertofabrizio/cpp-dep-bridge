@@ -30,3 +30,7 @@ add_test(
     NAME depbridge.integration.simulated
     COMMAND depbridge_integration_simulated
 )
+
+add_executable(depbridge_unit_classify unit/test_classify.cpp)
+target_link_libraries(depbridge_unit_classify PRIVATE depbridge::core)
+add_test(NAME depbridge.unit.classify COMMAND depbridge_unit_classify)

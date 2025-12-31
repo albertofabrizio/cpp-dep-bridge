@@ -8,7 +8,8 @@
 
 using namespace depbridge::model;
 
-static ProjectGraph make_graph() {
+static ProjectGraph make_graph()
+{
     ProjectGraph g;
     g.context.run_id = "run";
     g.context.root_directory = "root";
@@ -32,7 +33,8 @@ static ProjectGraph make_graph() {
     return g;
 }
 
-static void test_cyclonedx_is_deterministic() {
+static void test_cyclonedx_is_deterministic()
+{
     auto g = make_graph();
     std::ostringstream o1, o2;
     depbridge::sbom::write_cyclonedx_json(o1, g);
@@ -40,7 +42,8 @@ static void test_cyclonedx_is_deterministic() {
     assert(o1.str() == o2.str());
 }
 
-static void test_cyclonedx_contains_components_and_fields() {
+static void test_cyclonedx_contains_components_and_fields()
+{
     auto g = make_graph();
     std::ostringstream os;
     depbridge::sbom::write_cyclonedx_json(os, g);
@@ -60,21 +63,24 @@ static void test_cyclonedx_contains_components_and_fields() {
 
     // OpenSSL::SSL present (unknown type maps to library in MVP)
     assert(s.find("\"name\": \"OpenSSL::SSL\"") != std::string::npos);
+
+    assert(s.find("\"name\": \"depbridge:origin\"") != std::string::npos);
+    assert(s.find("\"value\": \"unknown\"") != std::string::npos);
 }
 
-static void test_cyclonedx_components_sorted_by_id() {
+static void test_cyclonedx_components_sorted_by_id()
+{
     auto g = make_graph();
     std::ostringstream os;
     depbridge::sbom::write_cyclonedx_json(os, g);
     const std::string s = os.str();
 
-    // Since components are sorted by bom-ref (ComponentId), the one with lexicographically smaller id appears first.
-    // We'll compute expected order.
+    // Components are sorted by ComponentId (bom-ref)
     auto it = g.components.begin();
     std::string first_id = it->first;
     ++it;
     std::string second_id = it->first;
-    // g.components is a map keyed by id, so begin() is already sorted by id
+
     assert(first_id < second_id);
 
     const auto p1 = s.find(first_id);
@@ -83,7 +89,8 @@ static void test_cyclonedx_components_sorted_by_id() {
     assert(p1 < p2);
 }
 
-int main() {
+int main()
+{
     test_cyclonedx_is_deterministic();
     test_cyclonedx_contains_components_and_fields();
     test_cyclonedx_components_sorted_by_id();
