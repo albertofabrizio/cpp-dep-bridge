@@ -7,10 +7,8 @@
 
 namespace depbridge::model
 {
-
     namespace
     {
-
         bool is_space(char c) { return c == ' '; }
 
         std::string trim_and_collapse_spaces(std::string s)
@@ -125,6 +123,19 @@ namespace depbridge::model
             return s.find("::") != std::string_view::npos;
         }
 
+        bool is_imported_cmake_target(std::string_view raw)
+        {
+            return looks_like_cmake_target(raw);
+        }
+
+        std::string imported_target_namespace(std::string_view raw)
+        {
+            const auto pos = raw.find("::");
+            if (pos == std::string_view::npos)
+                return std::string(raw);
+            return std::string(raw.substr(0, pos));
+        }
+
     }
 
     std::string normalize_path(std::string_view path)
@@ -184,10 +195,14 @@ namespace depbridge::model
             return c;
         }
 
-        if (looks_like_cmake_target(tok))
+        if (is_imported_cmake_target(tok))
         {
-            c.name = tok;                    // keep as-is; may be mapped later by ingestion layer
-            c.type = ComponentType::unknown; // we don't know if it's a library/tool/framework yet
+            c.type = ComponentType::library;
+            c.name = imported_target_namespace(tok);
+
+            c.properties.emplace("cmake.target", tok);
+            c.sources.push_back(SourceRef{"cmake", "imported-target", std::nullopt});
+
             c.id = make_component_id(c.type, "", c.name, "", "");
             return c;
         }
@@ -242,7 +257,6 @@ namespace depbridge::model
 
     void merge_component(Component &dst, const Component &incoming)
     {
-
         if (dst.name.empty() && !incoming.name.empty())
             dst.name = incoming.name;
         if (!dst.namespace_ && incoming.namespace_)
@@ -290,10 +304,35 @@ namespace depbridge::model
 
     void normalize_graph(ProjectGraph &g, const NormalizeOptions &opt)
     {
-        (void)opt; // reserved for future component-field normalization; currently applied in token->component creation
+        for (auto &e : g.edges)
+        {
+            if (e.to_component)
+                continue;
+            if (!e.raw.has_value())
+                continue;
+
+            Component c = component_from_link_token(*e.raw, opt);
+
+            if (c.name.empty())
+                continue;
+
+            const ComponentId cid = component_id_of(c);
+            c.id = cid;
+
+            auto it = g.components.find(cid.value);
+            if (it == g.components.end())
+            {
+                g.components.emplace(cid.value, std::move(c));
+            }
+            else
+            {
+                merge_component(it->second, c);
+            }
+
+            e.to_component = cid;
+        }
 
         std::unordered_map<std::string, std::string> remap;
-
         std::map<std::string, Component> rebuilt;
 
         for (auto &[old_key, comp] : g.components)

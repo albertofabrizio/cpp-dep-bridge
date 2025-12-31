@@ -6,7 +6,8 @@
 
 using namespace depbridge::model;
 
-static void test_token_to_component_unix_dash_l() {
+static void test_token_to_component_unix_dash_l()
+{
     NormalizeOptions opt;
     auto c = component_from_link_token("-lssl", opt);
     assert(c.type == ComponentType::library);
@@ -16,7 +17,8 @@ static void test_token_to_component_unix_dash_l() {
     assert(!c.namespace_);
 }
 
-static void test_token_to_component_windows_lib_path() {
+static void test_token_to_component_windows_lib_path()
+{
     NormalizeOptions opt;
     auto c = component_from_link_token("D:\\libs\\FMT.LIB", opt);
     assert(c.type == ComponentType::library);
@@ -24,15 +26,16 @@ static void test_token_to_component_windows_lib_path() {
     assert(c.name == "fmt");
 }
 
-static void test_token_to_component_cmake_target_passthrough() {
+static void test_token_to_component_cmake_target_passthrough()
+{
     NormalizeOptions opt;
     auto c = component_from_link_token("OpenSSL::SSL", opt);
-    assert(c.name == "OpenSSL::SSL");
-    // conservative: unknown
-    assert(c.type == ComponentType::unknown);
+    assert(c.name == "OpenSSL");
+    assert(c.type == ComponentType::library);
 }
 
-static void test_merge_component_fills_missing() {
+static void test_merge_component_fills_missing()
+{
     Component dst;
     dst.id = make_component_id(ComponentType::library, "", "fmt", "", "");
     dst.type = ComponentType::library;
@@ -55,13 +58,13 @@ static void test_merge_component_fills_missing() {
     assert(dst.properties["k1"] == "v1");
 }
 
-static void test_normalize_graph_merges_duplicates_and_remaps_edges() {
+static void test_normalize_graph_merges_duplicates_and_remaps_edges()
+{
     ProjectGraph g;
     g.context.run_id = "test";
     g.context.root_directory = "root";
     g.context.build_directory = "build";
 
-    // Two components that should canonicalize to same ID (same purl)
     Component c1;
     c1.type = ComponentType::library;
     c1.name = "fmt";
@@ -83,19 +86,66 @@ static void test_normalize_graph_merges_duplicates_and_remaps_edges() {
 
     assert(g.components.size() == 1);
 
-    const auto& only = g.components.begin()->second;
+    const auto &only = g.components.begin()->second;
     assert(only.id.value.rfind("cmp_", 0) == 0); // starts with cmp_
     assert(g.edges.size() == 1);
     assert(g.edges[0].to_component);
     assert(g.edges[0].to_component->value == only.id.value);
 }
 
-int main() {
+static void test_imported_cmake_targets_create_components()
+{
+    ProjectGraph g;
+
+    DependencyEdge e1;
+    e1.raw = std::string("fmt::fmt");
+
+    DependencyEdge e2;
+    e2.raw = std::string("nlohmann_json::nlohmann_json");
+
+    g.edges.push_back(e1);
+    g.edges.push_back(e2);
+
+    NormalizeOptions opt;
+    normalize_graph(g, opt);
+
+    assert(g.components.size() == 2);
+
+    {
+        Component c;
+        c.type = ComponentType::library;
+        c.name = "fmt";
+        const ComponentId expected = component_id_of(c);
+
+        assert(g.components.count(expected.value) == 1);
+    }
+
+    {
+        Component c;
+        c.type = ComponentType::library;
+        c.name = "nlohmann_json";
+        const ComponentId expected = component_id_of(c);
+
+        assert(g.components.count(expected.value) == 1);
+    }
+
+    assert(g.edges[0].to_component.has_value());
+    assert(g.edges[1].to_component.has_value());
+
+    assert(
+        g.components.count(g.edges[0].to_component->value) == 1);
+    assert(
+        g.components.count(g.edges[1].to_component->value) == 1);
+}
+
+int main()
+{
     test_token_to_component_unix_dash_l();
     test_token_to_component_windows_lib_path();
     test_token_to_component_cmake_target_passthrough();
     test_merge_component_fills_missing();
     test_normalize_graph_merges_duplicates_and_remaps_edges();
+    test_imported_cmake_targets_create_components();
 
     std::cout << "[unit] normalize: OK\n";
     return 0;
