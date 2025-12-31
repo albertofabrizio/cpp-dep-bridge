@@ -98,12 +98,16 @@ target_sources(depbridge_core
     src/ingest/ingest.cpp
     src/ingest/cmake/file_api_ingestor.cpp
 
+    # Phase 7
+    src/model/filter.cpp
+
   PUBLIC
     # Model
     include/depbridge/model/types.hpp
     include/depbridge/model/ids.hpp
     include/depbridge/model/normalize.hpp
     include/depbridge/model/classify.hpp
+    include/depbridge/model/filter.hpp
 
     # SBOM
     include/depbridge/sbom/cyclonedx_writer.hpp
