@@ -16,7 +16,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# ---- Export compile_commands for tooling
+# ---- Export compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ---- Default build type for single-config generators
@@ -24,7 +24,7 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "" FORCE)
 endif()
 
-# ---- Project-wide warnings (target-based)
+# ---- Warnings
 add_library(depbridge_warnings INTERFACE)
 
 if(MSVC)
@@ -52,14 +52,19 @@ else()
   endif()
 endif()
 
-# ---- Sanitizers (best-effort, clang/gcc)
+# ---- Sanitizers (best-effort)
 add_library(depbridge_sanitizers INTERFACE)
 if(DEPB_ENABLE_SANITIZERS AND NOT MSVC)
-  target_compile_options(depbridge_sanitizers INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
-  target_link_options(depbridge_sanitizers INTERFACE -fsanitize=address,undefined)
+  target_compile_options(depbridge_sanitizers INTERFACE
+    -fsanitize=address,undefined
+    -fno-omit-frame-pointer
+  )
+  target_link_options(depbridge_sanitizers INTERFACE
+    -fsanitize=address,undefined
+  )
 endif()
 
-# ---- LTO (IPO)
+# ---- LTO / IPO
 include(CheckIPOSupported)
 if(DEPB_ENABLE_LTO)
   check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
@@ -70,11 +75,9 @@ if(DEPB_ENABLE_LTO)
   endif()
 endif()
 
-# ---- Dependencies (keep minimal)
-# Prefer package managers (vcpkg/conan) to provide these.
+# ---- Dependencies
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-# Optional: CLI11
 find_package(CLI11 CONFIG QUIET)
 
 # ---- Core library
@@ -83,21 +86,29 @@ add_library(depbridge::core ALIAS depbridge_core)
 
 target_sources(depbridge_core
   PRIVATE
+    # Phase 3–4
     src/model/ids.cpp
     src/model/normalize.cpp
-    src/cmake/file_api_reader.cpp
-    src/cmake/target_graph_builder.cpp
+
+    # Phase 5
     src/sbom/cyclonedx_writer.cpp
-    src/github/dependency_submission.cpp
+
+    # Phase 6
+    src/ingest/ingest.cpp
+    src/ingest/cmake/file_api_ingestor.cpp
+
   PUBLIC
-      PUBLIC
+    # Model
     include/depbridge/model/types.hpp
     include/depbridge/model/ids.hpp
     include/depbridge/model/normalize.hpp
-    include/depbridge/cmake/file_api_reader.hpp
-    include/depbridge/cmake/target_graph_builder.hpp
+
+    # SBOM
     include/depbridge/sbom/cyclonedx_writer.hpp
-    include/depbridge/github/dependency_submission.hpp
+
+    # Ingestion
+    include/depbridge/ingest/ingest.hpp
+    include/depbridge/ingest/cmake/file_api_ingestor.hpp
 )
 
 target_include_directories(depbridge_core
@@ -122,13 +133,12 @@ if(TARGET CLI11::CLI11)
   target_link_libraries(depbridge PRIVATE CLI11::CLI11)
   target_compile_definitions(depbridge PRIVATE DEPB_HAS_CLI11=1)
 else()
-  # You can still implement a tiny argument parser yourself for MVP
   target_compile_definitions(depbridge PRIVATE DEPB_HAS_CLI11=0)
 endif()
 
 target_link_libraries(depbridge PRIVATE depbridge::core)
 
-# ---- Testing
+# ---- Tests
 include(CTest)
 if(DEPB_BUILD_TESTS)
   enable_testing()
