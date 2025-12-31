@@ -151,6 +151,21 @@ namespace depbridge::ingest::cmake
                     "target/" + bt.name,
                     std::nullopt});
 
+                if (tgt.contains("imported") && tgt.at("imported").get<bool>())
+                {
+                    bt.sources.push_back(SourceRef{
+                        "cmake-imported",
+                        bt.name,
+                        std::nullopt});
+                }
+                if (!tgt.contains("artifacts"))
+                {
+                    bt.sources.push_back(SourceRef{
+                        "cmake-imported",
+                        bt.name,
+                        std::nullopt});
+                }
+
                 g.targets.emplace(bt.id.value, bt);
 
                 if (!tgt.contains("link"))

@@ -34,6 +34,57 @@ static void test_system_classification()
     assert(g.components[third.id.value].origin == ComponentOrigin::unknown);
 }
 
+static void test_third_party_imported_target()
+{
+    ProjectGraph g;
+
+    Component c;
+    c.name = "fmt::fmt";
+    c.id = component_id_of(c);
+    g.components[c.id.value] = c;
+
+    classify_third_party_components(g);
+
+    assert(g.components[c.id.value].origin == ComponentOrigin::third_party);
+}
+
+static void test_third_party_source_ref()
+{
+    ProjectGraph g;
+
+    Component c;
+    c.name = "fmt";
+    c.sources.push_back(SourceRef{"vcpkg", "fmt", std::nullopt});
+    c.id = component_id_of(c);
+    g.components[c.id.value] = c;
+
+    classify_third_party_components(g);
+
+    assert(g.components[c.id.value].origin == ComponentOrigin::third_party);
+}
+
+static void test_third_party_does_not_override()
+{
+    ProjectGraph g;
+
+    Component proj;
+    proj.name = "depbridge_core";
+    proj.origin = ComponentOrigin::project_local;
+    proj.id = component_id_of(proj);
+    g.components[proj.id.value] = proj;
+
+    Component sys;
+    sys.name = "kernel32";
+    sys.origin = ComponentOrigin::system;
+    sys.id = component_id_of(sys);
+    g.components[sys.id.value] = sys;
+
+    classify_third_party_components(g);
+
+    assert(g.components[proj.id.value].origin == ComponentOrigin::project_local);
+    assert(g.components[sys.id.value].origin == ComponentOrigin::system);
+}
+
 int main()
 {
     ProjectGraph g;
@@ -68,6 +119,9 @@ int main()
     std::cout << "[unit] classify: OK\n";
 
     test_system_classification();
+    test_third_party_imported_target();
+    test_third_party_source_ref();
+    test_third_party_does_not_override();
 
     return 0;
 }
