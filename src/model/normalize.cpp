@@ -313,6 +313,8 @@ namespace depbridge::model
 
             Component c = component_from_link_token(*e.raw, opt);
 
+            append_sources(c.sources, e.sources);
+
             if (c.name.empty())
                 continue;
 
