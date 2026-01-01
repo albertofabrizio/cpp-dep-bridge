@@ -313,8 +313,26 @@ namespace depbridge::model
 
             Component c = component_from_link_token(*e.raw, opt);
 
+            append_sources(c.sources, e.sources);
+
             if (c.name.empty())
                 continue;
+
+            if (e.to_target)
+            {
+                const auto tit = g.targets.find(e.to_target->value);
+                if (tit != g.targets.end())
+                {
+                    const BuildTarget &bt = tit->second;
+
+                    if (bt.name.find("::") != std::string::npos)
+                    {
+                        c.name = bt.name;
+                    }
+
+                    append_sources(c.sources, bt.sources);
+                }
+            }
 
             const ComponentId cid = component_id_of(c);
             c.id = cid;

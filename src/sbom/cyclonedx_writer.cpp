@@ -21,7 +21,7 @@ namespace depbridge::sbom
                 switch (c)
                 {
                 case '"':
-                    out += "\"";
+                    out += "\\\"";
                     break;
                 case '\\':
                     out += "\\\\";
@@ -81,6 +81,7 @@ namespace depbridge::sbom
         {
             comps.push_back(&c);
         }
+
         std::sort(comps.begin(), comps.end(),
                   [](const Component *a, const Component *b)
                   {
@@ -107,7 +108,9 @@ namespace depbridge::sbom
         indent(os, 6);
         os << "\"version\": \"0.1.0-dev\"\n";
         indent(os, 4);
-        os << "}]}," << "\n";
+        os << "}]\n";
+        indent(os, 2);
+        os << "},\n";
 
         // Components
         indent(os, 2);
@@ -148,7 +151,15 @@ namespace depbridge::sbom
                    << json_escape(*c.license.spdx_id) << "\"}}]";
             }
 
-            os << "\n";
+            os << ",\n";
+            indent(os, 6);
+            os << "\"properties\": [\n";
+            indent(os, 8);
+            os << "{ \"name\": \"depbridge:origin\", \"value\": \""
+               << json_escape(to_string(c.origin)) << "\" }\n";
+            indent(os, 6);
+            os << "]\n";
+
             indent(os, 4);
             os << "}";
 

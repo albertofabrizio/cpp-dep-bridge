@@ -18,6 +18,12 @@ add_executable(depbridge_unit_cyclonedx
 target_link_libraries(depbridge_unit_cyclonedx PRIVATE depbridge_core)
 add_test(NAME depbridge.unit.cyclonedx COMMAND depbridge_unit_cyclonedx)
 
+add_executable(depbridge_unit_filter
+    unit/test_filter.cpp
+)
+target_link_libraries(depbridge_unit_filter PRIVATE depbridge_core)
+add_test(NAME depbridge.unit.filter COMMAND depbridge_unit_filter)
+
 # Integration tests
 
 add_executable(depbridge_integration_simulated
@@ -30,3 +36,7 @@ add_test(
     NAME depbridge.integration.simulated
     COMMAND depbridge_integration_simulated
 )
+
+add_executable(depbridge_unit_classify unit/test_classify.cpp)
+target_link_libraries(depbridge_unit_classify PRIVATE depbridge::core)
+add_test(NAME depbridge.unit.classify COMMAND depbridge_unit_classify)
