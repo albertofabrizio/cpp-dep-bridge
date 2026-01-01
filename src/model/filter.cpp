@@ -1,6 +1,7 @@
 #include "depbridge/model/filter.hpp"
 
 #include <unordered_set>
+#include <algorithm>
 
 namespace depbridge::model
 {

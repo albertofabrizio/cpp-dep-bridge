@@ -30,7 +30,7 @@ static void test_token_to_component_cmake_target_passthrough()
 {
     NormalizeOptions opt;
     auto c = component_from_link_token("OpenSSL::SSL", opt);
-    assert(c.name == "OpenSSL");
+    assert(c.name == "OpenSSL::SSL");
     assert(c.type == ComponentType::library);
 }
 
@@ -109,33 +109,31 @@ static void test_imported_cmake_targets_create_components()
     NormalizeOptions opt;
     normalize_graph(g, opt);
 
+    // We should get one component per imported target (no namespace collapsing).
     assert(g.components.size() == 2);
 
     {
         Component c;
         c.type = ComponentType::library;
-        c.name = "fmt";
+        c.name = "fmt::fmt";
         const ComponentId expected = component_id_of(c);
-
         assert(g.components.count(expected.value) == 1);
     }
 
     {
         Component c;
         c.type = ComponentType::library;
-        c.name = "nlohmann_json";
+        c.name = "nlohmann_json::nlohmann_json";
         const ComponentId expected = component_id_of(c);
-
         assert(g.components.count(expected.value) == 1);
     }
 
+    // Edges must have been remapped to component IDs.
     assert(g.edges[0].to_component.has_value());
     assert(g.edges[1].to_component.has_value());
 
-    assert(
-        g.components.count(g.edges[0].to_component->value) == 1);
-    assert(
-        g.components.count(g.edges[1].to_component->value) == 1);
+    assert(g.components.count(g.edges[0].to_component->value) == 1);
+    assert(g.components.count(g.edges[1].to_component->value) == 1);
 }
 
 int main()
