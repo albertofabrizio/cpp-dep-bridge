@@ -27,17 +27,28 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake
+          sudo apt-get install -y ninja-build cmake libfmt-dev nlohmann-json3-dev
 
       # ---------- Windows ----------
       - name: Setup MSVC (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Setup vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "2024.02.14"
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install fmt nlohmann-json
+
       # ---------- Configure ----------
       - name: Configure (CMake presets)
         run: |
-          cmake --preset ci
+          cmake --preset ci -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
 
       # ---------- Build ----------
       - name: Build
