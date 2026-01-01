@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <cctype>
 
 namespace depbridge::ingest::cmake
@@ -132,6 +133,9 @@ namespace depbridge::ingest::cmake
 
         const json codemodel = load_json(codemodel_path);
 
+        std::unordered_map<std::string, TargetId> cmake_id_to_target;
+        std::unordered_map<std::string, TargetId> cmake_name_to_target;
+
         for (const auto &cfg : codemodel.at("configurations"))
         {
             const std::string cfg_name = cfg.at("name").get<std::string>();
@@ -146,18 +150,42 @@ namespace depbridge::ingest::cmake
                 bt.name = tgt.at("name").get<std::string>();
                 bt.id = TargetId{"raw:" + bt.name + ":" + cfg_name};
 
+                const std::string cmake_tid = tgt.contains("id") && tgt.at("id").is_string()
+                                                  ? tgt.at("id").get<std::string>()
+                                                  : std::string{};
+
                 bt.sources.push_back(SourceRef{
                     "cmake",
                     "target/" + bt.name,
                     std::nullopt});
 
-                if (tgt.contains("imported") && tgt.at("imported").get<bool>())
+                if (!cmake_tid.empty())
+                {
+                    bt.sources.push_back(SourceRef{
+                        "cmake-target-id",
+                        cmake_tid,
+                        std::nullopt});
+                }
+
+                if (!cmake_tid.empty())
+                {
+                    cmake_id_to_target.emplace(cmake_tid, bt.id);
+                }
+                cmake_name_to_target.emplace(bt.name, bt.id);
+
+                const bool is_generator = tgt.contains("isGeneratorProvided") &&
+                                          tgt.at("isGeneratorProvided").is_boolean() &&
+                                          tgt.at("isGeneratorProvided").get<bool>();
+                const bool has_artifacts = tgt.contains("artifacts");
+
+                if (!is_generator && !has_artifacts)
                 {
                     bt.sources.push_back(SourceRef{
                         "cmake-imported",
                         bt.name,
                         std::nullopt});
                 }
+
                 if (!tgt.contains("artifacts"))
                 {
                     bt.sources.push_back(SourceRef{
