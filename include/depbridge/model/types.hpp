@@ -65,6 +65,14 @@ namespace depbridge::model
         std::optional<int> line; // optional line number
     };
 
+    // ---------- Variant Evidence ----------
+    struct VariantEvidence
+    {
+        std::string kind;  // e.g. "debug", "release", "static", "shared"
+        std::string value; // e.g. "path:/debug/", "msvc-suffix-d"
+        SourceRef source;  // where we observed this
+    };
+
     // ---------- Identity ----------
 
     struct ComponentId

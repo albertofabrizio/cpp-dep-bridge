@@ -24,6 +24,12 @@ add_executable(depbridge_unit_filter
 target_link_libraries(depbridge_unit_filter PRIVATE depbridge_core)
 add_test(NAME depbridge.unit.filter COMMAND depbridge_unit_filter)
 
+add_executable(depbridge_unit_variant_normalize
+    unit/test_variant_normalize.cpp
+)
+target_link_libraries(depbridge_unit_variant_normalize PRIVATE depbridge_core)
+add_test(NAME depbridge.unit.variant_normalize COMMAND depbridge_unit_variant_normalize)
+
 # Integration tests
 
 add_executable(depbridge_integration_simulated

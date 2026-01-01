@@ -100,6 +100,7 @@ target_sources(depbridge_core
 
     # Phase 7
     src/model/filter.cpp
+    src/model/variant_normalize.cpp
 
   PUBLIC
     # Model
@@ -108,6 +109,7 @@ target_sources(depbridge_core
     include/depbridge/model/normalize.hpp
     include/depbridge/model/classify.hpp
     include/depbridge/model/filter.hpp
+    include/depbridge/model/variant_normalize.hpp
 
     # SBOM
     include/depbridge/sbom/cyclonedx_writer.hpp
