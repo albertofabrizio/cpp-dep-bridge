@@ -1,7 +1,5 @@
 #include "depbridge/sbom/cyclonedx_writer.hpp"
 
-#include <iomanip>
-#include <sstream>
 #include <algorithm>
 
 namespace depbridge::sbom

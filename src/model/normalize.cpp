@@ -9,8 +9,6 @@ namespace depbridge::model
 {
     namespace
     {
-        bool is_space(char c) { return c == ' '; }
-
         std::string trim_and_collapse_spaces(std::string s)
         {
             for (char &ch : s)
@@ -198,9 +196,10 @@ namespace depbridge::model
         if (is_imported_cmake_target(tok))
         {
             c.type = ComponentType::library;
-            c.name = imported_target_namespace(tok);
+            c.name = tok;
 
             c.properties.emplace("cmake.target", tok);
+            c.properties.emplace("cmake.target.namespace", imported_target_namespace(tok));
             c.sources.push_back(SourceRef{"cmake", "imported-target", std::nullopt});
 
             c.id = make_component_id(c.type, "", c.name, "", "");
