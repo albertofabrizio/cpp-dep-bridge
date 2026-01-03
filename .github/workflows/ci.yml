@@ -60,32 +60,30 @@ jobs:
       # ============================================================
       # Windows toolchain + vcpkg bootstrap
       # ============================================================
+      - name: Create vcpkg binary cache
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
       - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install Ninja (Windows)
-        if: runner.os == 'Windows'
-        uses: seanmiddleditch/gha-setup-ninja@v5
-
       - name: Bootstrap vcpkg (Windows)
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          if (!(Test-Path "$env:VCPKG_ROOT")) {
-            git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
-            cd "$env:VCPKG_ROOT"
-            git checkout e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4
-            .\bootstrap-vcpkg.bat
-          }
-
-      - name: Create vcpkg binary cache
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
+          git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
+          cd "$env:VCPKG_ROOT"
+          git checkout e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4
+          .\bootstrap-vcpkg.bat
 
       # ============================================================
       # Configure
