@@ -17,14 +17,12 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     env:
-      # Speed up vcpkg on Windows
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       # ============================================================
       # Linux dependencies (system packages)
@@ -46,17 +44,19 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg
+      - name: Install vcpkg (Windows)
         if: runner.os == 'Windows'
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgDirectory: ${{ github.workspace }}/vcpkg
-          vcpkgGitCommitId: "e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4"
+        shell: powershell
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git $env:GITHUB_WORKSPACE\vcpkg
+          cd $env:GITHUB_WORKSPACE\vcpkg
+          git checkout e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4
+          .\bootstrap-vcpkg.bat
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          vcpkg install fmt nlohmann-json
+          $env:VCPKG_ROOT\vcpkg.exe install fmt nlohmann-json
 
       # ============================================================
       # Configure
