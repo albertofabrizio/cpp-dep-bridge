@@ -82,12 +82,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
 
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          & "$env:VCPKG_ROOT/vcpkg.exe" install fmt nlohmann-json --triplet x64-windows
-
       # ============================================================
       # Configure
       # ============================================================
@@ -105,16 +99,28 @@ jobs:
       # ============================================================
       # Build
       # ============================================================
-      - name: Build
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
         run: |
-          cmake --build --preset ci
+          cmake --build --preset ci-linux
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake --build --preset ci-windows
 
       # ============================================================
       # Test
       # ============================================================
-      - name: Test
+      - name: Test (Linux)
+        if: runner.os == 'Linux'
         run: |
-          ctest --preset ci --output-on-failure
+          ctest --preset ci-linux
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          ctest --preset ci-windows
 
       # ============================================================
       # Upload build artifacts
@@ -124,7 +130,7 @@ jobs:
         with:
           name: build-${{ runner.os }}
           path: |
-            build/**/*
+            out/build/**/*
           if-no-files-found: warn
 
       # ============================================================
@@ -136,5 +142,5 @@ jobs:
         with:
           name: test-logs-${{ runner.os }}
           path: |
-            build/Testing/**/*
+            out/build/**/Testing/**/*
           if-no-files-found: warn
