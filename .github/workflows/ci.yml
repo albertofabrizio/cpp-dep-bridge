@@ -70,7 +70,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: seanmiddleditch/gha-setup-ninja@v5
 
-      - name: Disable Visual Studio bundled vcpkg
+      - name: Force local vcpkg PATH
         if: runner.os == 'Windows'
         shell: powershell
         run: |
@@ -78,19 +78,6 @@ jobs:
           echo "VCPKG_INSTALLATION_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
           echo "VCPKG_DISABLE_METRICS=1" >> $env:GITHUB_ENV
           echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> $env:GITHUB_ENV
-
-      - name: Setup MSVC
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Force local vcpkg PATH (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          echo "$env:VCPKG_ROOT" 
-          echo "$env:VCPKG_ROOT" | Out-File -Append $env:GITHUB_PATH
 
       - name: Bootstrap vcpkg (Windows)
         if: runner.os == 'Windows'
