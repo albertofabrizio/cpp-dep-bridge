@@ -100,6 +100,7 @@ target_sources(depbridge_core
     src/model/variant_normalize.cpp
 
     src/enrich/enrich.cpp
+    src/enrich/providers/build_context_provider.cpp
 
   PUBLIC
     # Model
@@ -121,6 +122,9 @@ target_sources(depbridge_core
     # Enrich
     include/depbridge/enrich/enrich.hpp
     include/depbridge/enrich/types.hpp
+    include/depbridge/enrich/provider.hpp
+    include/depbridge/enrich/providers/build_context_provider.hpp
+    
 )
 
 target_include_directories(depbridge_core

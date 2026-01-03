@@ -21,28 +21,33 @@ int main(int argc, char **argv)
         }
 
         depbridge::model::FilterOptions filter_opt;
+        depbridge::enrich::EnrichmentConfig enrich_cfg;
 
         std::string build_dir;
         for (int i = 2; i < argc; ++i)
         {
             std::string arg = argv[i];
             if (arg == "--include-system")
-            {
                 filter_opt.include_system = true;
-            }
             else if (arg == "--include-project-local")
-            {
                 filter_opt.include_project_local = true;
-            }
+            else if (arg == "--enrich")
+                enrich_cfg.enabled = true;
+            else if (arg == "--enrich-build-context")
+                enrich_cfg.enable_build_context = true;
             else if (build_dir.empty())
-            {
                 build_dir = arg;
-            }
             else
             {
                 std::cerr << "Unknown argument: " << arg << "\n";
                 return 1;
             }
+        }
+
+        if (enrich_cfg.enable_build_context && !enrich_cfg.enabled)
+        {
+            std::cerr << "--enrich-build-context requires --enrich\n";
+            return 1;
         }
 
         if (build_dir.empty())
@@ -58,15 +63,16 @@ int main(int argc, char **argv)
         depbridge::model::classify_system_components(graph);
         depbridge::model::classify_third_party_components(graph);
         depbridge::model::filter_components(graph, filter_opt);
-        depbridge::enrich::EnrichmentConfig enrich_cfg;
-        // Step-2: still keep enrichment OFF by default
-        // To enable later, we’ll add CLI flags in Step-3/4.
-        enrich_cfg.enabled = false;
-        enrich_cfg.enable_build_context = true;
-
         auto enrichment = depbridge::enrich::enrich(graph, enrich_cfg);
-        (void)enrichment;
-        depbridge::sbom::write_cyclonedx_json(std::cout, graph);
+
+        if (enrich_cfg.enabled)
+        {
+            depbridge::sbom::write_cyclonedx_json(std::cout, graph, enrichment);
+        }
+        else
+        {
+            depbridge::sbom::write_cyclonedx_json(std::cout, graph);
+        }
 
         return 0;
     }

@@ -36,6 +36,12 @@ add_executable(depbridge_unit_enrichment_noop
 target_link_libraries(depbridge_unit_enrichment_noop PRIVATE depbridge_core)
 add_test(NAME depbridge.unit.enrichment_noop COMMAND depbridge_unit_enrichment_noop)
 
+add_executable(depbridge_unit_build_context_provider
+    unit/test_build_context_provider.cpp
+)
+target_link_libraries(depbridge_unit_build_context_provider PRIVATE depbridge_core)
+add_test(NAME depbridge.unit.build_context_provider COMMAND depbridge_unit_build_context_provider)
+
 # Integration tests
 
 add_executable(depbridge_integration_simulated

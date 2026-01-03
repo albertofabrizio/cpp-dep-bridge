@@ -1,15 +1,15 @@
 #include "depbridge/sbom/cyclonedx_writer.hpp"
 
 #include <algorithm>
+#include <type_traits>
 
 namespace depbridge::sbom
 {
-
     using namespace depbridge::model;
+    using namespace depbridge::enrich;
 
     namespace
     {
-
         std::string json_escape(const std::string &s)
         {
             std::string out;
@@ -69,16 +69,47 @@ namespace depbridge::sbom
             return "library";
         }
 
-    } // namespace
+        std::string meta_value_to_string(const MetaValue &v)
+        {
+            return std::visit([](auto &&val) -> std::string
+                              {
+                using T = std::decay_t<decltype(val)>;
+
+                if constexpr (std::is_same_v<T, std::string>)
+                    return val;
+                else if constexpr (std::is_same_v<T, bool>)
+                    return val ? "true" : "false";
+                else if constexpr (std::is_same_v<T, int64_t>)
+                    return std::to_string(val);
+                else if constexpr (std::is_same_v<T, double>)
+                    return std::to_string(val);
+                else if constexpr (std::is_same_v<T, std::vector<std::string>>)
+                {
+                    std::string out;
+                    for (std::size_t i = 0; i < val.size(); ++i)
+                    {
+                        if (i) out += ",";
+                        out += val[i];
+                    }
+                    return out;
+                } }, v);
+        }
+    }
 
     void write_cyclonedx_json(std::ostream &os, const ProjectGraph &g)
     {
+        EnrichmentOverlay empty;
+        write_cyclonedx_json(os, g, empty);
+    }
+
+    void write_cyclonedx_json(
+        std::ostream &os,
+        const ProjectGraph &g,
+        const EnrichmentOverlay &enrich)
+    {
         std::vector<const Component *> comps;
-        comps.reserve(g.components.size());
         for (const auto &[_, c] : g.components)
-        {
             comps.push_back(&c);
-        }
 
         std::sort(comps.begin(), comps.end(),
                   [](const Component *a, const Component *b)
@@ -94,7 +125,6 @@ namespace depbridge::sbom
         indent(os, 2);
         os << "\"version\": 1,\n";
 
-        // Metadata
         indent(os, 2);
         os << "\"metadata\": {\n";
         indent(os, 4);
@@ -104,22 +134,21 @@ namespace depbridge::sbom
         indent(os, 6);
         os << "\"name\": \"cpp-dep-bridge\",\n";
         indent(os, 6);
-        os << "\"version\": \"0.1.0-dev\"\n";
+        os << "\"version\": \"0.4.0-alpha\"\n";
         indent(os, 4);
         os << "}]\n";
         indent(os, 2);
         os << "},\n";
 
-        // Components
         indent(os, 2);
         os << "\"components\": [\n";
 
         for (std::size_t i = 0; i < comps.size(); ++i)
         {
             const Component &c = *comps[i];
+
             indent(os, 4);
             os << "{\n";
-
             indent(os, 6);
             os << "\"type\": \"" << component_type_to_cdx(c.type) << "\",\n";
             indent(os, 6);
@@ -134,30 +163,34 @@ namespace depbridge::sbom
                 os << "\"version\": \"" << json_escape(*c.version) << "\"";
             }
 
-            if (c.purl)
-            {
-                os << ",\n";
-                indent(os, 6);
-                os << "\"purl\": \"" << json_escape(*c.purl) << "\"";
-            }
-
-            if (c.license.spdx_id)
-            {
-                os << ",\n";
-                indent(os, 6);
-                os << "\"licenses\": [{\"license\": {\"id\": \""
-                   << json_escape(*c.license.spdx_id) << "\"}}]";
-            }
-
             os << ",\n";
             indent(os, 6);
             os << "\"properties\": [\n";
             indent(os, 8);
             os << "{ \"name\": \"depbridge:origin\", \"value\": \""
-               << json_escape(to_string(c.origin)) << "\" }\n";
+               << json_escape(to_string(c.origin)) << "\" }";
+
+            auto it = enrich.component_fields.find(c.id.value);
+            if (it != enrich.component_fields.end())
+            {
+                for (const auto &f : it->second)
+                {
+                    os << ",\n";
+                    indent(os, 8);
+                    os << "{ \"name\": \"" << json_escape(f.key)
+                       << "\", \"value\": \""
+                       << json_escape(meta_value_to_string(f.value))
+                       << "\" }";
+                }
+                os << "\n";
+            }
+            else
+            {
+                os << "\n";
+            }
+
             indent(os, 6);
             os << "]\n";
-
             indent(os, 4);
             os << "}";
 
@@ -170,5 +203,4 @@ namespace depbridge::sbom
         os << "]\n";
         os << "}\n";
     }
-
 }
