@@ -2,10 +2,8 @@ name: CI
 
 on:
   push:
-    tags:
-      - "v*"
-    branches:
-      - main
+    branches: [main]
+    tags: ["v*"]
   pull_request:
 
 jobs:
@@ -18,44 +16,70 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
 
+    env:
+      # Speed up vcpkg on Windows
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------- Linux ----------
+      # ============================================================
+      # Linux dependencies (system packages)
+      # ============================================================
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake libfmt-dev nlohmann-json3-dev
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            libfmt-dev \
+            nlohmann-json3-dev
 
-      # ---------- Windows ----------
-      - name: Setup MSVC (Windows)
+      # ============================================================
+      # Windows toolchain + vcpkg
+      # ============================================================
+      - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg (Windows)
+      - name: Setup vcpkg
         if: runner.os == 'Windows'
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "2024.02.14"
+          # MUST be a full 40-char SHA
+          vcpkgGitCommitId: "e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4"
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
           vcpkg install fmt nlohmann-json
 
-      # ---------- Configure ----------
-      - name: Configure (CMake presets)
+      # ============================================================
+      # Configure
+      # ============================================================
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
         run: |
-          cmake --preset ci -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
+          cmake --preset ci-linux
 
-      # ---------- Build ----------
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake --preset ci-windows ^
+            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
+
+      # ============================================================
+      # Build
+      # ============================================================
       - name: Build
         run: |
           cmake --build --preset ci
 
-      # ---------- Test ----------
+      # ============================================================
+      # Test
+      # ============================================================
       - name: Test
         run: |
           ctest --preset ci --output-on-failure

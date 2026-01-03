@@ -28,20 +28,6 @@
       }
     },
     {
-      "name": "vs-dev",
-      "displayName": "VS 2022 (MSVC)",
-      "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/out/build/vs-dev",
-      "cacheVariables": {
-        "DEPB_ENABLE_WERROR": "OFF",
-        "DEPB_ENABLE_SANITIZERS": "OFF",
-        "DEPB_ENABLE_LTO": "OFF",
-        "DEPB_BUILD_TESTS": "ON",
-        "CMAKE_TOOLCHAIN_FILE": "D:/Development/vcpkg/scripts/buildsystems/vcpkg.cmake"
-      }
-    },
-
-    {
       "name": "debug",
       "displayName": "Debug",
       "inherits": "base",
@@ -53,7 +39,7 @@
     },
     {
       "name": "asan",
-      "displayName": "ASan+UBSan (Debug)",
+      "displayName": "ASan + UBSan (Debug)",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -72,30 +58,57 @@
       }
     },
     {
-      "name": "ci",
-      "displayName": "CI (strict)",
+      "name": "vs-dev",
+      "displayName": "VS 2022 (MSVC)",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/out/build/vs-dev",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "DEPB_BUILD_TESTS": "ON",
+        "DEPB_ENABLE_WERROR": "OFF",
+        "DEPB_ENABLE_SANITIZERS": "OFF",
+        "DEPB_ENABLE_LTO": "OFF"
+      }
+    },
+
+    {
+      "name": "ci-linux",
+      "displayName": "CI Linux",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "DEPB_ENABLE_WERROR": "ON",
         "DEPB_ENABLE_SANITIZERS": "ON",
-        "DEPB_ENABLE_LTO": "OFF",
-        "DEPB_BUILD_TESTS": "ON"
+        "DEPB_ENABLE_LTO": "OFF"
       }
+    },
+
+    {
+      "name": "ci-windows",
+      "displayName": "CI Windows",
+      "inherits": "ci-linux"
     }
   ],
+
   "buildPresets": [
     { "name": "dev", "configurePreset": "dev" },
     { "name": "debug", "configurePreset": "debug" },
     { "name": "asan", "configurePreset": "asan" },
     { "name": "release", "configurePreset": "release" },
-    { "name": "ci", "configurePreset": "ci" }
+
+    {
+      "name": "ci",
+      "configurePreset": "ci-linux"
+    }
   ],
+
   "testPresets": [
     {
       "name": "ci",
-      "configurePreset": "ci",
-      "output": { "outputOnFailure": true }
+      "configurePreset": "ci-linux",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }
