@@ -59,8 +59,13 @@ int main(int argc, char **argv)
         depbridge::model::classify_third_party_components(graph);
         depbridge::model::filter_components(graph, filter_opt);
         depbridge::enrich::EnrichmentConfig enrich_cfg;
+        // Step-2: still keep enrichment OFF by default
+        // To enable later, we’ll add CLI flags in Step-3/4.
+        enrich_cfg.enabled = false;
+        enrich_cfg.enable_build_context = true;
+
         auto enrichment = depbridge::enrich::enrich(graph, enrich_cfg);
-        (void)enrichment; // suppress unused warning
+        (void)enrichment;
         depbridge::sbom::write_cyclonedx_json(std::cout, graph);
 
         return 0;
