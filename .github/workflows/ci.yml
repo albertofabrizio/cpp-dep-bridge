@@ -17,15 +17,34 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
 
     steps:
+      # ============================================================
+      # Checkout
+      # ============================================================
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: false
 
       # ============================================================
-      # Linux dependencies (system packages)
+      # Cache vcpkg + binary cache
+      # ============================================================
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg
+            vcpkg-cache
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      # ============================================================
+      # Linux system dependencies
       # ============================================================
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
@@ -38,25 +57,36 @@ jobs:
             nlohmann-json3-dev
 
       # ============================================================
-      # Windows toolchain + vcpkg
+      # Windows toolchain + vcpkg bootstrap
       # ============================================================
       - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-      - name: Install vcpkg (Windows)
+      - name: Bootstrap vcpkg (Windows)
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          git clone https://github.com/microsoft/vcpkg.git $env:GITHUB_WORKSPACE\vcpkg
-          cd $env:GITHUB_WORKSPACE\vcpkg
-          git checkout e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4
-          .\bootstrap-vcpkg.bat
+          if (!(Test-Path "$env:VCPKG_ROOT")) {
+            git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
+            cd "$env:VCPKG_ROOT"
+            git checkout e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4
+            .\bootstrap-vcpkg.bat
+          }
+
+      - name: Create vcpkg binary cache
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
+        shell: powershell
         run: |
-          $env:VCPKG_ROOT\vcpkg.exe install fmt nlohmann-json
+          & "$env:VCPKG_ROOT/vcpkg.exe" install fmt nlohmann-json --triplet x64-windows
 
       # ============================================================
       # Configure
@@ -68,9 +98,9 @@ jobs:
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
+        shell: powershell
         run: |
-          cmake --preset ci-windows ^
-            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
+          cmake --preset ci-windows
 
       # ============================================================
       # Build
@@ -85,3 +115,26 @@ jobs:
       - name: Test
         run: |
           ctest --preset ci --output-on-failure
+
+      # ============================================================
+      # Upload build artifacts
+      # ============================================================
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: |
+            build/**/*
+          if-no-files-found: warn
+
+      # ============================================================
+      # Upload test logs (always)
+      # ============================================================
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ runner.os }}
+          path: |
+            build/Testing/**/*
+          if-no-files-found: warn
