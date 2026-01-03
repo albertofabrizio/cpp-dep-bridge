@@ -76,7 +76,7 @@
       "displayName": "CI Linux",
       "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_BUILD_TYPE": "Debug",
         "DEPB_ENABLE_WERROR": "ON",
         "DEPB_ENABLE_SANITIZERS": "ON",
         "DEPB_ENABLE_LTO": "OFF"
