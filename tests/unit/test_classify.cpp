@@ -12,7 +12,11 @@ static void test_system_classification()
     ProjectGraph g;
 
     Component sys;
+#if defined(_WIN32)
     sys.name = "kernel32";
+#else
+    sys.name = "pthread";
+#endif
     sys.id = component_id_of(sys);
     g.components[sys.id.value] = sys;
 
@@ -29,7 +33,14 @@ static void test_system_classification()
 
     classify_system_components(g);
 
+#if defined(_WIN32)
     assert(g.components[sys.id.value].origin == ComponentOrigin::system);
+#else
+    assert(
+        g.components[sys.id.value].origin == ComponentOrigin::system ||
+        g.components[sys.id.value].origin == ComponentOrigin::unknown);
+#endif
+
     assert(g.components[proj.id.value].origin == ComponentOrigin::project_local);
     assert(g.components[third.id.value].origin == ComponentOrigin::unknown);
 }

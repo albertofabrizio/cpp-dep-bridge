@@ -9,7 +9,6 @@
     {
       "name": "base",
       "hidden": true,
-      "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -20,6 +19,7 @@
       "name": "dev",
       "displayName": "Dev (RelWithDebInfo)",
       "inherits": "base",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "DEPB_ENABLE_WERROR": "OFF",
@@ -28,23 +28,10 @@
       }
     },
     {
-      "name": "vs-dev",
-      "displayName": "VS 2022 (MSVC)",
-      "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/out/build/vs-dev",
-      "cacheVariables": {
-        "DEPB_ENABLE_WERROR": "OFF",
-        "DEPB_ENABLE_SANITIZERS": "OFF",
-        "DEPB_ENABLE_LTO": "OFF",
-        "DEPB_BUILD_TESTS": "ON",
-        "CMAKE_TOOLCHAIN_FILE": "D:/Development/vcpkg/scripts/buildsystems/vcpkg.cmake"
-      }
-    },
-
-    {
       "name": "debug",
       "displayName": "Debug",
       "inherits": "base",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEPB_ENABLE_WERROR": "OFF",
@@ -53,8 +40,9 @@
     },
     {
       "name": "asan",
-      "displayName": "ASan+UBSan (Debug)",
+      "displayName": "ASan + UBSan (Debug)",
       "inherits": "base",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "DEPB_ENABLE_SANITIZERS": "ON",
@@ -65,6 +53,7 @@
       "name": "release",
       "displayName": "Release (LTO)",
       "inherits": "base",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEPB_ENABLE_LTO": "ON",
@@ -72,30 +61,73 @@
       }
     },
     {
-      "name": "ci",
-      "displayName": "CI (strict)",
+      "name": "vs-dev",
+      "displayName": "VS 2022 (MSVC + vcpkg)",
       "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/out/build/vs-dev",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "DEPB_ENABLE_WERROR": "OFF",
+        "DEPB_ENABLE_SANITIZERS": "OFF",
+        "DEPB_ENABLE_LTO": "OFF"
+      }
+    },
+
+    {
+      "name": "ci-linux",
+      "displayName": "CI Linux",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
         "DEPB_ENABLE_WERROR": "ON",
         "DEPB_ENABLE_SANITIZERS": "ON",
-        "DEPB_ENABLE_LTO": "OFF",
-        "DEPB_BUILD_TESTS": "ON"
+        "DEPB_ENABLE_LTO": "OFF"
+      }
+    },
+
+    {
+      "name": "ci-windows",
+      "displayName": "CI Windows",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "DEPB_ENABLE_WERROR": "ON",
+        "DEPB_ENABLE_SANITIZERS": "OFF",
+        "DEPB_ENABLE_LTO": "OFF"
       }
     }
   ],
+
   "buildPresets": [
     { "name": "dev", "configurePreset": "dev" },
     { "name": "debug", "configurePreset": "debug" },
     { "name": "asan", "configurePreset": "asan" },
     { "name": "release", "configurePreset": "release" },
-    { "name": "ci", "configurePreset": "ci" }
+
+    { "name": "ci-linux", "configurePreset": "ci-linux" },
+    { "name": "ci-windows", "configurePreset": "ci-windows" }
   ],
+
   "testPresets": [
     {
-      "name": "ci",
-      "configurePreset": "ci",
-      "output": { "outputOnFailure": true }
+      "name": "ci-linux",
+      "configurePreset": "ci-linux",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-windows",
+      "configurePreset": "ci-windows",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }

@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <string_view>
 
 namespace depbridge::model
 {
@@ -15,12 +16,13 @@ namespace depbridge::model
         constexpr std::uint64_t fnv1a_offset = 14695981039346656037ull;
         constexpr std::uint64_t fnv1a_prime = 1099511628211ull;
 
-        std::uint64_t fnv1a64(std::string_view s)
+        [[nodiscard]]
+        constexpr std::uint64_t fnv1a64(std::string_view s) noexcept
         {
             std::uint64_t h = fnv1a_offset;
-            for (unsigned char c : s)
+            for (char c : s)
             {
-                h ^= static_cast<std::uint64_t>(c);
+                h ^= static_cast<std::uint8_t>(c);
                 h *= fnv1a_prime;
             }
             return h;

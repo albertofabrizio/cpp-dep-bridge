@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+    steps:
+      # ============================================================
+      # Checkout
+      # ============================================================
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      # ============================================================
+      # Cache vcpkg + binary cache
+      # ============================================================
+      - name: Cache vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg
+            vcpkg-cache
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      # ============================================================
+      # Linux system dependencies
+      # ============================================================
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            libfmt-dev \
+            nlohmann-json3-dev
+
+      # ============================================================
+      # Windows toolchain + vcpkg bootstrap
+      # ============================================================
+      - name: Create vcpkg binary cache
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
+      - name: Force local vcpkg PATH
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+          echo "VCPKG_INSTALLATION_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+          echo "VCPKG_DISABLE_METRICS=1" >> $env:GITHUB_ENV
+          echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> $env:GITHUB_ENV
+
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          if (!(Test-Path "$env:VCPKG_ROOT")) {
+            git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
+            cd "$env:VCPKG_ROOT"
+            .\bootstrap-vcpkg.bat
+          }
+
+      - name: Debug vcpkg paths (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          where vcpkg
+          echo "VCPKG_ROOT=$env:VCPKG_ROOT"
+          echo "VCPKG_INSTALLATION_ROOT=$env:VCPKG_INSTALLATION_ROOT"
+          cmake -E capabilities
+
+      # ============================================================
+      # Configure
+      # ============================================================
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake --preset ci-linux
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          cmake --preset ci-windows
+
+      # ============================================================
+      # Build
+      # ============================================================
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake --build --preset ci-linux
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake --build --preset ci-windows
+
+      # ============================================================
+      # Test
+      # ============================================================
+      - name: Test (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ctest --preset ci-linux
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          ctest --preset ci-windows
+
+      # ============================================================
+      # Upload build artifacts
+      # ============================================================
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: |
+            out/build/**/*
+          if-no-files-found: warn
+
+      # ============================================================
+      # Upload test logs (always)
+      # ============================================================
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ runner.os }}
+          path: |
+            out/build/**/Testing/**/*
+          if-no-files-found: warn
