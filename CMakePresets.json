@@ -91,8 +91,14 @@
     {
       "name": "ci-windows",
       "displayName": "CI Windows",
-      "inherits": "base",
       "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/ci-windows",
+      "environment": {
+        "VCPKG_ROOT": "$env{VCPKG_ROOT}",
+        "VCPKG_INSTALLATION_ROOT": "$env{VCPKG_ROOT}",
+        "VCPKG_FEATURE_FLAGS": "manifests,binarycaching",
+        "VCPKG_DISABLE_METRICS": "1"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",

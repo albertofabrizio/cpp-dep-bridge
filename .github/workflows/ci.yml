@@ -80,10 +80,31 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
-          cd "$env:VCPKG_ROOT"
-          git checkout e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4
-          .\bootstrap-vcpkg.bat
+          if (!(Test-Path "$env:VCPKG_ROOT")) {
+            git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
+            cd "$env:VCPKG_ROOT"
+            git checkout e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4
+            .\bootstrap-vcpkg.bat
+          }
+
+      - name: Force local vcpkg (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_ROOT"
+          echo "VCPKG_INSTALLATION_ROOT=$env:VCPKG_ROOT"
+
+          echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
+          echo "VCPKG_INSTALLATION_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
+
+      - name: Debug vcpkg paths (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          where vcpkg
+          echo "VCPKG_ROOT=$env:VCPKG_ROOT"
+          echo "VCPKG_INSTALLATION_ROOT=$env:VCPKG_INSTALLATION_ROOT"
+          cmake -E capabilities
 
       # ============================================================
       # Configure
