@@ -30,6 +30,12 @@ add_executable(depbridge_unit_variant_normalize
 target_link_libraries(depbridge_unit_variant_normalize PRIVATE depbridge_core)
 add_test(NAME depbridge.unit.variant_normalize COMMAND depbridge_unit_variant_normalize)
 
+add_executable(depbridge_unit_enrichment_noop
+    unit/test_enrichment_noop.cpp
+)
+target_link_libraries(depbridge_unit_enrichment_noop PRIVATE depbridge_core)
+add_test(NAME depbridge.unit.enrichment_noop COMMAND depbridge_unit_enrichment_noop)
+
 # Integration tests
 
 add_executable(depbridge_integration_simulated

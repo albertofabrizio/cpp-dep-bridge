@@ -86,21 +86,20 @@ add_library(depbridge::core ALIAS depbridge_core)
 
 target_sources(depbridge_core
   PRIVATE
-    # Phase 3–4
     src/model/ids.cpp
     src/model/normalize.cpp
     src/model/classify.cpp
+    src/model/fingerprint.cpp
 
-    # Phase 5
-    src/sbom/cyclonedx_writer.cpp
+    src/sbom/cyclonedx/cyclonedx_writer.cpp
 
-    # Phase 6
     src/ingest/ingest.cpp
     src/ingest/cmake/file_api_ingestor.cpp
 
-    # Phase 7
     src/model/filter.cpp
     src/model/variant_normalize.cpp
+
+    src/enrich/enrich.cpp
 
   PUBLIC
     # Model
@@ -110,6 +109,7 @@ target_sources(depbridge_core
     include/depbridge/model/classify.hpp
     include/depbridge/model/filter.hpp
     include/depbridge/model/variant_normalize.hpp
+    include/depbridge/model/fingerprint.hpp
 
     # SBOM
     include/depbridge/sbom/cyclonedx_writer.hpp
@@ -117,6 +117,10 @@ target_sources(depbridge_core
     # Ingestion
     include/depbridge/ingest/ingest.hpp
     include/depbridge/ingest/cmake/file_api_ingestor.hpp
+
+    # Enrich
+    include/depbridge/enrich/enrich.hpp
+    include/depbridge/enrich/types.hpp
 )
 
 target_include_directories(depbridge_core

@@ -4,6 +4,7 @@
 #include "depbridge/model/filter.hpp"
 #include "depbridge/model/variant_normalize.hpp"
 #include "depbridge/sbom/cyclonedx_writer.hpp"
+#include "depbridge/enrich/enrich.hpp"
 
 #include <iostream>
 #include <string>
@@ -57,6 +58,9 @@ int main(int argc, char **argv)
         depbridge::model::classify_system_components(graph);
         depbridge::model::classify_third_party_components(graph);
         depbridge::model::filter_components(graph, filter_opt);
+        depbridge::enrich::EnrichmentConfig enrich_cfg;
+        auto enrichment = depbridge::enrich::enrich(graph, enrich_cfg);
+        (void)enrichment; // suppress unused warning
         depbridge::sbom::write_cyclonedx_json(std::cout, graph);
 
         return 0;
