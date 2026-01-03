@@ -1,6 +1,5 @@
 {
   "name": "cpp-dep-bridge",
   "version-string": "0.3.0-alpha",
-  "builtin-baseline": "e2a7a85b3c7f8d6b91a6c0c8d0f2e9b77b92e3e4",
   "dependencies": ["fmt", "nlohmann-json"]
 }
