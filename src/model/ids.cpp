@@ -169,4 +169,14 @@ namespace depbridge::model
             c.purl.value_or(std::string{}));
     }
 
+    std::string canonical_component_key_of(const Component &c)
+    {
+        return canonical_component_key(
+            c.type,
+            c.namespace_.value_or(std::string{}),
+            c.name,
+            c.version.value_or(std::string{}),
+            c.purl.value_or(std::string{}));
+    }
+
 }

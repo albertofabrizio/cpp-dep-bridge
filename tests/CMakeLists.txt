@@ -46,3 +46,12 @@ add_test(
 add_executable(depbridge_unit_classify unit/test_classify.cpp)
 target_link_libraries(depbridge_unit_classify PRIVATE depbridge::core)
 add_test(NAME depbridge.unit.classify COMMAND depbridge_unit_classify)
+
+
+add_executable(depbridge_unit_file_api_ingestor unit/test_file_api_ingestor.cpp)
+target_link_libraries(depbridge_unit_file_api_ingestor PRIVATE depbridge::core)
+add_test(NAME depbridge.unit.file_api_ingestor COMMAND depbridge_unit_file_api_ingestor)
+
+add_executable(depbridge_unit_file_api_no_guessing unit/test_file_api_no_guessing.cpp)
+target_link_libraries(depbridge_unit_file_api_no_guessing PRIVATE depbridge::core)
+add_test(NAME depbridge.unit.file_api_no_guessing COMMAND depbridge_unit_file_api_no_guessing)
