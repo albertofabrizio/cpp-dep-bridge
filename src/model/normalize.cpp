@@ -1,9 +1,12 @@
 #include "depbridge/model/normalize.hpp"
 #include "depbridge/model/ids.hpp"
+#include "depbridge/model/evidence.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <unordered_map>
+#include <stdexcept>
+#include <optional>
 
 namespace depbridge::model
 {
@@ -65,6 +68,18 @@ namespace depbridge::model
             return s;
         }
 
+        static bool is_all_digits_or_dots(std::string_view s)
+        {
+            if (s.empty())
+                return false;
+            for (char ch : s)
+            {
+                if (!(ch == '.' || (ch >= '0' && ch <= '9')))
+                    return false;
+            }
+            return true;
+        }
+
         std::string strip_ext(std::string s, const NormalizeOptions &opt)
         {
             if (!opt.strip_library_extensions)
@@ -74,6 +89,15 @@ namespace depbridge::model
                 return s.substr(0, s.size() - 2);
             if (ends_with(lower, ".so"))
                 return s.substr(0, s.size() - 3);
+
+            const auto so_pos = lower.rfind(".so.");
+            if (so_pos != std::string::npos)
+            {
+                const auto suffix = lower.substr(so_pos + 3);
+                if (is_all_digits_or_dots(suffix))
+                    return s.substr(0, so_pos);
+            }
+
             if (ends_with(lower, ".dylib"))
                 return s.substr(0, s.size() - 6);
             if (ends_with(lower, ".lib"))
@@ -134,6 +158,42 @@ namespace depbridge::model
             return std::string(raw.substr(0, pos));
         }
 
+        std::optional<std::string> project_target_name_from_lib_token(const std::string &name, const ProjectGraph &g)
+        {
+            if (!starts_with(name, "lib") || name.size() <= 3)
+                return std::nullopt;
+
+            const std::string candidate = name.substr(3);
+            for (const auto &[_, t] : g.targets)
+            {
+                if (t.name == candidate)
+                    return candidate;
+            }
+            return std::nullopt;
+        }
+
+        std::string normalize_versioned_soname_token(std::string name)
+        {
+            const std::string lower = to_lower_ascii(name);
+            const auto so_pos = lower.rfind(".so.");
+            if (so_pos == std::string::npos)
+                return name;
+
+            const auto suffix = lower.substr(so_pos + 3);
+            if (!is_all_digits_or_dots(suffix))
+                return name;
+
+            return name.substr(0, so_pos);
+        }
+
+        std::string canonicalize_component_name_with_graph_context(std::string name, const ProjectGraph &g)
+        {
+            name = normalize_versioned_soname_token(name);
+            if (const auto project_target_name = project_target_name_from_lib_token(name, g); project_target_name.has_value())
+                return *project_target_name;
+            return name;
+        }
+
     }
 
     std::string normalize_path(std::string_view path)
@@ -168,7 +228,7 @@ namespace depbridge::model
         c.type = ComponentType::library;
 
         const std::string tok = normalize_token(raw_token);
-        c.sources.push_back(SourceRef{"link-token", tok, std::nullopt});
+        c.sources.push_back(SourceRef{"cmake-link-token", tok, std::nullopt});
 
         if (tok.empty())
         {
@@ -189,6 +249,7 @@ namespace depbridge::model
         {
             const std::string p = normalize_path(tok);
             c.name = normalize_lib_name_from_file(p, opt);
+            c.sources.push_back(SourceRef{"cmake-link-path", p, std::nullopt});
             c.id = make_component_id(c.type, "", c.name, "", "");
             return c;
         }
@@ -196,11 +257,11 @@ namespace depbridge::model
         if (is_imported_cmake_target(tok))
         {
             c.type = ComponentType::library;
-            c.name = tok;
+            c.name = imported_target_namespace(tok);
 
             c.properties.emplace("cmake.target", tok);
             c.properties.emplace("cmake.target.namespace", imported_target_namespace(tok));
-            c.sources.push_back(SourceRef{"cmake", "imported-target", std::nullopt});
+            c.sources.push_back(SourceRef{"cmake-imported", tok, std::nullopt});
 
             c.id = make_component_id(c.type, "", c.name, "", "");
             return c;
@@ -211,7 +272,6 @@ namespace depbridge::model
             name = strip_ext(name, opt);
             if (opt.case_fold_windows_libs)
                 name = to_lower_ascii(name);
-            name = strip_unix_libprefix(name, opt);
             c.name = name;
             c.id = make_component_id(c.type, "", c.name, "", "");
             return c;
@@ -317,6 +377,19 @@ namespace depbridge::model
             if (c.name.empty())
                 continue;
 
+            {
+                const std::string original_name = c.name;
+                c.name = canonicalize_component_name_with_graph_context(c.name, g);
+                if (c.name != original_name)
+                {
+                    c.properties["depbridge:normalized-from"] = original_name;
+                    if (const auto project_target_name = project_target_name_from_lib_token(original_name, g); project_target_name.has_value())
+                    {
+                        c.sources.push_back(SourceRef{"project-target", c.name, std::nullopt});
+                    }
+                }
+            }
+
             if (e.to_target)
             {
                 const auto tit = g.targets.find(e.to_target->value);
@@ -326,7 +399,9 @@ namespace depbridge::model
 
                     if (bt.name.find("::") != std::string::npos)
                     {
-                        c.name = bt.name;
+                        c.name = imported_target_namespace(bt.name);
+                        c.properties["cmake.target"] = bt.name;
+                        c.sources.push_back(SourceRef{"cmake-imported", bt.name, std::nullopt});
                     }
 
                     append_sources(c.sources, bt.sources);
@@ -354,6 +429,13 @@ namespace depbridge::model
 
         for (auto &[old_key, comp] : g.components)
         {
+            const std::string original_name = comp.name;
+            comp.name = canonicalize_component_name_with_graph_context(comp.name, g);
+            if (comp.name != original_name)
+            {
+                comp.properties["depbridge:normalized-from"] = original_name;
+            }
+
             const ComponentId new_id = component_id_of(comp);
             const std::string new_key = new_id.value;
 
@@ -369,6 +451,14 @@ namespace depbridge::model
             }
             else
             {
+                const std::string existing_key = canonical_component_key_of(it->second);
+                const std::string incoming_key = canonical_component_key_of(comp);
+                if (existing_key != incoming_key)
+                {
+                    throw std::runtime_error(
+                        "Component identity collision detected for id '" + new_key +
+                        "' with differing canonical keys");
+                }
                 merge_component(it->second, comp);
             }
         }
