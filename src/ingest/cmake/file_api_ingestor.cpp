@@ -92,6 +92,11 @@ namespace depbridge::ingest::cmake
         return select_deterministic_file_api_index(candidates);
     }
 
+    static bool starts_with(std::string_view s, std::string_view pre)
+    {
+        return s.size() >= pre.size() && s.substr(0, pre.size()) == pre;
+    }
+
     static bool is_noise_token(const std::string &s)
     {
         if (s.empty())
@@ -101,6 +106,11 @@ namespace depbridge::ingest::cmake
             return true;
 
         if (s.rfind("-Wl,", 0) == 0)
+            return true;
+
+        // Keep only linker dependency-like short options (-lfoo). Drop compile/
+        // generic flags that may appear in File API fragments.
+        if (starts_with(s, "-") && !starts_with(s, "-l"))
             return true;
 
         return false;

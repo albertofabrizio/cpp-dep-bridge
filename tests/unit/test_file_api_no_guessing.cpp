@@ -43,7 +43,10 @@ static void test_ingest_does_not_emit_guess_sources()
       "artifacts": [],
       "link": {
         "libraries": [
-          {"path":"C:/vcpkg/installed/x64-windows/lib/fmtd.lib"}
+          {"path":"C:/vcpkg/installed/x64-windows/lib/fmtd.lib"},
+          "-DNDEBUG",
+          "-O2",
+          "-g"
         ],
         "commandFragments": [
           {"fragment":"-DNDEBUG -O2 -g","role":"flags"},
@@ -75,6 +78,8 @@ static void test_ingest_does_not_emit_guess_sources()
     }
 
     assert(saw_expected_library_fragment);
+    // Only path-based lib + one libraries fragment token should remain.
+    assert(g.edges.size() == 2);
 
     fs::remove_all(base);
 }
