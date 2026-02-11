@@ -110,6 +110,36 @@ static void test_ambiguous_remains_unknown_without_evidence()
     assert(g.components[c.id.value].origin == ComponentOrigin::unknown);
 }
 
+
+static void test_project_local_classification_with_lib_prefix_token()
+{
+    ProjectGraph g;
+
+    BuildTarget t;
+    t.id = TargetId{"t:depbridge_core"};
+    t.name = "depbridge_core";
+    g.targets.emplace(t.id.value, t);
+
+    DependencyEdge e;
+    e.from = t.id;
+    e.raw = "libdepbridge_core";
+    g.edges.push_back(e);
+
+    normalize_graph(g);
+    classify_project_local_components(g);
+
+    bool found = false;
+    for (const auto &[_, c] : g.components)
+    {
+        if (c.name == "depbridge_core")
+        {
+            found = true;
+            assert(c.origin == ComponentOrigin::project_local);
+        }
+    }
+    assert(found);
+}
+
 int main()
 {
     ProjectGraph g;
@@ -148,6 +178,7 @@ int main()
     test_third_party_source_ref();
     test_third_party_does_not_override();
     test_ambiguous_remains_unknown_without_evidence();
+    test_project_local_classification_with_lib_prefix_token();
 
     return 0;
 }

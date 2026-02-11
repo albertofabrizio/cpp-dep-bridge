@@ -17,6 +17,14 @@ static void test_token_to_component_unix_dash_l()
     assert(!c.namespace_);
 }
 
+static void test_token_to_component_versioned_soname_path()
+{
+    NormalizeOptions opt;
+    auto c = component_from_link_token("/usr/lib/libfmt.so.9.1.0", opt);
+    assert(c.type == ComponentType::library);
+    assert(c.name == "fmt");
+}
+
 static void test_token_to_component_windows_lib_path()
 {
     NormalizeOptions opt;
@@ -148,15 +156,42 @@ static void test_ambiguous_non_path_tokens_do_not_collapse()
     assert(a.id.value != b.id.value);
 }
 
+static void test_project_local_lib_prefix_converges_to_target_name()
+{
+    ProjectGraph g;
+
+    BuildTarget t;
+    t.id = TargetId{"t:depbridge_core"};
+    t.name = "depbridge_core";
+    g.targets.emplace(t.id.value, t);
+
+    DependencyEdge e;
+    e.from = t.id;
+    e.raw = "libdepbridge_core";
+    g.edges.push_back(e);
+
+    normalize_graph(g);
+
+    bool found = false;
+    for (const auto &[_, c] : g.components)
+    {
+        if (c.name == "depbridge_core")
+            found = true;
+    }
+    assert(found);
+}
+
 int main()
 {
     test_token_to_component_unix_dash_l();
+    test_token_to_component_versioned_soname_path();
     test_token_to_component_windows_lib_path();
     test_token_to_component_cmake_target_passthrough();
     test_merge_component_fills_missing();
     test_normalize_graph_merges_duplicates_and_remaps_edges();
     test_imported_cmake_targets_create_components();
     test_ambiguous_non_path_tokens_do_not_collapse();
+    test_project_local_lib_prefix_converges_to_target_name();
 
     std::cout << "[unit] normalize: OK\n";
     return 0;

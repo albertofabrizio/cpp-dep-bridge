@@ -6,6 +6,7 @@
 #include <cctype>
 #include <unordered_map>
 #include <stdexcept>
+#include <optional>
 
 namespace depbridge::model
 {
@@ -67,6 +68,18 @@ namespace depbridge::model
             return s;
         }
 
+        static bool is_all_digits_or_dots(std::string_view s)
+        {
+            if (s.empty())
+                return false;
+            for (char ch : s)
+            {
+                if (!(ch == '.' || (ch >= '0' && ch <= '9')))
+                    return false;
+            }
+            return true;
+        }
+
         std::string strip_ext(std::string s, const NormalizeOptions &opt)
         {
             if (!opt.strip_library_extensions)
@@ -76,6 +89,15 @@ namespace depbridge::model
                 return s.substr(0, s.size() - 2);
             if (ends_with(lower, ".so"))
                 return s.substr(0, s.size() - 3);
+
+            const auto so_pos = lower.rfind(".so.");
+            if (so_pos != std::string::npos)
+            {
+                const auto suffix = lower.substr(so_pos + 3);
+                if (is_all_digits_or_dots(suffix))
+                    return s.substr(0, so_pos);
+            }
+
             if (ends_with(lower, ".dylib"))
                 return s.substr(0, s.size() - 6);
             if (ends_with(lower, ".lib"))
@@ -134,6 +156,20 @@ namespace depbridge::model
             if (pos == std::string_view::npos)
                 return std::string(raw);
             return std::string(raw.substr(0, pos));
+        }
+
+        std::optional<std::string> project_target_name_from_lib_token(const std::string &name, const ProjectGraph &g)
+        {
+            if (!starts_with(name, "lib") || name.size() <= 3)
+                return std::nullopt;
+
+            const std::string candidate = name.substr(3);
+            for (const auto &[_, t] : g.targets)
+            {
+                if (t.name == candidate)
+                    return candidate;
+            }
+            return std::nullopt;
         }
 
     }
@@ -318,6 +354,13 @@ namespace depbridge::model
 
             if (c.name.empty())
                 continue;
+
+            if (const auto project_target_name = project_target_name_from_lib_token(c.name, g); project_target_name.has_value())
+            {
+                c.properties["depbridge:normalized-from-lib-prefix"] = c.name;
+                c.name = *project_target_name;
+                c.sources.push_back(SourceRef{"project-target", c.name, std::nullopt});
+            }
 
             if (e.to_target)
             {
