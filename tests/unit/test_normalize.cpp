@@ -17,6 +17,14 @@ static void test_token_to_component_unix_dash_l()
     assert(!c.namespace_);
 }
 
+static void test_token_to_component_versioned_soname_token()
+{
+    NormalizeOptions opt;
+    auto c = component_from_link_token("fmt.so.9.1.0", opt);
+    assert(c.type == ComponentType::library);
+    assert(c.name == "fmt");
+}
+
 static void test_token_to_component_versioned_soname_path()
 {
     NormalizeOptions opt;
@@ -184,6 +192,7 @@ static void test_project_local_lib_prefix_converges_to_target_name()
 int main()
 {
     test_token_to_component_unix_dash_l();
+    test_token_to_component_versioned_soname_token();
     test_token_to_component_versioned_soname_path();
     test_token_to_component_windows_lib_path();
     test_token_to_component_cmake_target_passthrough();
