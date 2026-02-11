@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <map>
 #include <set>
+#include <unordered_map>
 
 namespace depbridge::sbom
 {
@@ -102,30 +103,60 @@ namespace depbridge::sbom
                   { return a->id.value < b->id.value; });
 
         std::map<std::string, std::set<std::string>> dependencies;
-        std::map<std::string, std::set<std::string>> target_to_components;
+        std::map<std::string, std::set<std::string>> target_to_dep_components;
+        std::unordered_map<std::string, std::set<std::string>> target_to_subject_components;
 
         for (const auto &edge : g.edges)
         {
             if (edge.to_component)
             {
-                target_to_components[edge.from.value].insert(edge.to_component->value);
+                target_to_dep_components[edge.from.value].insert(edge.to_component->value);
             }
         }
 
-        for (const auto &[target_id, dep_components] : target_to_components)
+        // Prefer explicit project-target evidence for mapping build targets to their
+        // corresponding component(s). Fall back to name matching when evidence is absent.
+        for (const auto &[component_id, component] : g.components)
         {
-            const auto target_it = g.targets.find(target_id);
-            if (target_it == g.targets.end())
+            bool had_explicit_project_target = false;
+            for (const auto &source : component.sources)
+            {
+                if (source.system == "project-target" && !source.ref.empty())
+                {
+                    had_explicit_project_target = true;
+                    for (const auto &[target_id, target] : g.targets)
+                    {
+                        if (target.name == source.ref)
+                        {
+                            target_to_subject_components[target_id].insert(component_id);
+                        }
+                    }
+                }
+            }
+
+            if (had_explicit_project_target)
                 continue;
 
-            for (const auto &[_, component] : g.components)
+            for (const auto &[target_id, target] : g.targets)
             {
-                if (component.name != target_it->second.name)
-                    continue;
+                if (component.name == target.name)
+                {
+                    target_to_subject_components[target_id].insert(component_id);
+                }
+            }
+        }
 
-                auto &deps = dependencies[component.id.value];
+        for (const auto &[target_id, dep_components] : target_to_dep_components)
+        {
+            const auto subject_it = target_to_subject_components.find(target_id);
+            if (subject_it == target_to_subject_components.end())
+                continue;
+
+            for (const auto &subject_component_id : subject_it->second)
+            {
+                auto &deps = dependencies[subject_component_id];
                 deps.insert(dep_components.begin(), dep_components.end());
-                deps.erase(component.id.value);
+                deps.erase(subject_component_id);
             }
         }
 
