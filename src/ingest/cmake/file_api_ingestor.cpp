@@ -2,15 +2,14 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <string>
-#include <string_view>
-#include <vector>
 #include <unordered_map>
-#include <cctype>
-#include <optional>
+#include <vector>
 
 namespace depbridge::ingest::cmake
 {
@@ -34,8 +33,7 @@ namespace depbridge::ingest::cmake
         }
         catch (const std::exception &e)
         {
-            throw std::runtime_error(
-                "Failed to parse JSON file '" + p.string() + "': " + e.what());
+            throw std::runtime_error("Failed to parse JSON file '" + p.string() + "': " + e.what());
         }
     }
 
@@ -44,15 +42,31 @@ namespace depbridge::ingest::cmake
         fs::path reply = build_dir / ".cmake" / "api" / "v1" / "reply";
         if (!fs::exists(reply))
         {
-            throw std::runtime_error(
-                "CMake File API reply directory not found: " + reply.string());
+            throw std::runtime_error("CMake File API reply directory not found: " + reply.string());
         }
         if (!fs::is_directory(reply))
         {
-            throw std::runtime_error(
-                "CMake File API reply path is not a directory: " + reply.string());
+            throw std::runtime_error("CMake File API reply path is not a directory: " + reply.string());
         }
         return reply;
+    }
+
+    fs::path select_deterministic_file_api_index(const std::vector<fs::path> &candidates)
+    {
+        if (candidates.empty())
+        {
+            throw std::runtime_error("No index file candidates provided");
+        }
+
+        std::vector<std::string> names;
+        names.reserve(candidates.size());
+        for (const auto &candidate : candidates)
+        {
+            names.push_back(candidate.filename().string());
+        }
+
+        std::sort(names.begin(), names.end());
+        return candidates.front().parent_path() / names.back();
     }
 
     static fs::path find_index(const fs::path &reply_dir)
@@ -72,114 +86,10 @@ namespace depbridge::ingest::cmake
 
         if (candidates.empty())
         {
-            throw std::runtime_error(
-                "CMake File API index-*.json not found in reply directory: " + reply_dir.string());
+            throw std::runtime_error("CMake File API index-*.json not found in reply directory: " + reply_dir.string());
         }
 
-        fs::path best = candidates.front();
-        auto best_time = fs::last_write_time(best);
-
-        for (std::size_t i = 1; i < candidates.size(); ++i)
-        {
-            const fs::path &candidate = candidates[i];
-            const auto candidate_time = fs::last_write_time(candidate);
-
-            if (candidate_time > best_time ||
-                (candidate_time == best_time && candidate.filename().string() > best.filename().string()))
-            {
-                best = candidate;
-                best_time = candidate_time;
-            }
-        }
-
-        return best;
-    }
-
-    static std::string to_lower_ascii(std::string s)
-    {
-        for (char &ch : s)
-        {
-            if (ch >= 'A' && ch <= 'Z')
-                ch = static_cast<char>(ch - 'A' + 'a');
-        }
-        return s;
-    }
-
-    static std::string normalize_slashes(std::string s)
-    {
-        for (char &ch : s)
-        {
-            if (ch == '\\')
-                ch = '/';
-        }
-        return s;
-    }
-
-    static bool ends_with(std::string_view s, std::string_view suf)
-    {
-        return s.size() >= suf.size() && s.substr(s.size() - suf.size()) == suf;
-    }
-
-    static std::string basename_noext(std::string_view p)
-    {
-        const auto pos = p.find_last_of("/\\");
-        std::string base = (pos == std::string_view::npos) ? std::string(p) : std::string(p.substr(pos + 1));
-        auto dot = base.find_last_of('.');
-        if (dot != std::string::npos)
-            base = base.substr(0, dot);
-        return base;
-    }
-
-    struct VcpkgHit
-    {
-        std::string triplet;
-        std::string port; // best-effort guess from lib name
-        bool is_debug = false;
-        std::string normalized_path;
-    };
-
-    static std::optional<VcpkgHit> detect_vcpkg_from_lib_path(std::string_view raw_path)
-    {
-        std::string p = normalize_slashes(std::string(raw_path));
-        std::string pl = to_lower_ascii(p);
-
-        const std::string needle = "/installed/";
-        auto pos = pl.find(needle);
-        if (pos == std::string::npos)
-            return std::nullopt;
-
-        auto triplet_begin = pos + needle.size();
-        auto triplet_end = pl.find('/', triplet_begin);
-        if (triplet_end == std::string::npos || triplet_end == triplet_begin)
-            return std::nullopt;
-
-        const std::string triplet = p.substr(triplet_begin, triplet_end - triplet_begin);
-
-        bool is_debug = (pl.find("/debug/lib/") != std::string::npos);
-
-        if (!(ends_with(pl, ".lib") ||
-              ends_with(pl, ".a") ||
-              ends_with(pl, ".so") ||
-              ends_with(pl, ".dylib")))
-        {
-            return std::nullopt;
-        }
-
-        std::string libname = basename_noext(p);
-
-        if (is_debug && libname.size() > 1 && (libname.back() == 'd' || libname.back() == 'D'))
-        {
-            libname.pop_back();
-        }
-
-        std::string port = to_lower_ascii(libname);
-
-        VcpkgHit hit;
-        hit.triplet = triplet;
-        hit.port = port;
-        hit.is_debug = is_debug;
-        hit.normalized_path = p;
-        return hit;
+        return select_deterministic_file_api_index(candidates);
     }
 
     static bool is_noise_token(const std::string &s)
@@ -271,8 +181,7 @@ namespace depbridge::ingest::cmake
                           const std::string &raw,
                           const std::string &ref,
                           const std::unordered_map<std::string, TargetId> &cmake_id_to_target,
-                          const std::unordered_map<std::string, TargetId> &cmake_name_to_target,
-                          const std::vector<SourceRef> &extra_sources = {})
+                          const std::unordered_map<std::string, TargetId> &cmake_name_to_target)
     {
         if (is_noise_token(raw))
             return;
@@ -283,8 +192,6 @@ namespace depbridge::ingest::cmake
         e.to_target = resolve_target_token(cfg_name, raw, cmake_id_to_target, cmake_name_to_target);
 
         e.sources.push_back(SourceRef{"cmake", ref, std::nullopt});
-        for (const auto &s : extra_sources)
-            e.sources.push_back(s);
 
         g.edges.push_back(std::move(e));
     }
@@ -331,8 +238,7 @@ namespace depbridge::ingest::cmake
 
                 for (const auto &tgt_ref : cfg.at("targets"))
                 {
-                    const fs::path tgt_path =
-                        reply_dir / tgt_ref.at("jsonFile").get<std::string>();
+                    const fs::path tgt_path = reply_dir / tgt_ref.at("jsonFile").get<std::string>();
 
                     try
                     {
@@ -347,35 +253,25 @@ namespace depbridge::ingest::cmake
                                                           ? tgt.at("id").get<std::string>()
                                                           : std::string{};
 
-                        bt.sources.push_back(SourceRef{
-                            "cmake",
-                            "target/" + bt.name,
-                            std::nullopt});
+                        bt.sources.push_back(SourceRef{"cmake", "target/" + bt.name, std::nullopt});
 
                         if (!cmake_tid.empty())
                         {
-                            bt.sources.push_back(SourceRef{
-                                "cmake-target-id",
-                                cmake_tid,
-                                std::nullopt});
+                            bt.sources.push_back(SourceRef{"cmake-target-id", cmake_tid, std::nullopt});
 
-                            const auto [_, inserted] = cmake_id_to_target.emplace(
-                                make_cfg_key(cfg_name, cmake_tid), bt.id);
+                            const auto [_, inserted] = cmake_id_to_target.emplace(make_cfg_key(cfg_name, cmake_tid), bt.id);
                             if (!inserted)
                             {
-                                throw std::runtime_error(
-                                    "Duplicate CMake target id mapping: '" + cmake_tid +
-                                    "' in configuration '" + cfg_name + "'");
+                                throw std::runtime_error("Duplicate CMake target id mapping: '" + cmake_tid +
+                                                         "' in configuration '" + cfg_name + "'");
                             }
                         }
 
-                        const auto [__, inserted_name] = cmake_name_to_target.emplace(
-                            make_cfg_key(cfg_name, bt.name), bt.id);
+                        const auto [__, inserted_name] = cmake_name_to_target.emplace(make_cfg_key(cfg_name, bt.name), bt.id);
                         if (!inserted_name)
                         {
-                            throw std::runtime_error(
-                                "Duplicate target name mapping: '" + bt.name +
-                                "' in configuration '" + cfg_name + "'");
+                            throw std::runtime_error("Duplicate target name mapping: '" + bt.name +
+                                                     "' in configuration '" + cfg_name + "'");
                         }
 
                         const bool is_generator = tgt.contains("isGeneratorProvided") &&
@@ -385,18 +281,14 @@ namespace depbridge::ingest::cmake
 
                         if (!is_generator && !has_artifacts)
                         {
-                            bt.sources.push_back(SourceRef{
-                                "cmake-imported",
-                                bt.name,
-                                std::nullopt});
+                            bt.sources.push_back(SourceRef{"cmake-imported", bt.name, std::nullopt});
                         }
 
                         const auto [___, inserted_target] = g.targets.emplace(bt.id.value, bt);
                         if (!inserted_target)
                         {
-                            throw std::runtime_error(
-                                "Duplicate build target id insertion: '" + bt.id.value +
-                                "' in configuration '" + cfg_name + "'");
+                            throw std::runtime_error("Duplicate build target id insertion: '" + bt.id.value +
+                                                     "' in configuration '" + cfg_name + "'");
                         }
 
                         if (!tgt.contains("link"))
@@ -410,29 +302,18 @@ namespace depbridge::ingest::cmake
                             {
                                 if (lib.is_string())
                                 {
-                                    push_edge(g, bt.id, cfg_name, lib.get<std::string>(), "link.libraries",
-                                              cmake_id_to_target, cmake_name_to_target);
+                                    push_edge(g, bt.id, cfg_name, lib.get<std::string>(), "link.libraries", cmake_id_to_target, cmake_name_to_target);
                                 }
                                 else if (lib.is_object())
                                 {
                                     if (lib.contains("name") && lib.at("name").is_string())
                                     {
-                                        push_edge(g, bt.id, cfg_name, lib.at("name").get<std::string>(), "link.libraries.name",
-                                                  cmake_id_to_target, cmake_name_to_target);
+                                        push_edge(g, bt.id, cfg_name, lib.at("name").get<std::string>(), "link.libraries.name", cmake_id_to_target, cmake_name_to_target);
                                     }
                                     else if (lib.contains("path") && lib.at("path").is_string())
                                     {
                                         const std::string p = lib.at("path").get<std::string>();
-
-                                        std::vector<SourceRef> extra;
-                                        if (auto hit = detect_vcpkg_from_lib_path(p))
-                                        {
-                                            extra.push_back(SourceRef{"vcpkg", "guess:" + hit->port + ":" + hit->triplet, std::nullopt});
-                                            extra.push_back(SourceRef{"vcpkg-path", hit->normalized_path, std::nullopt});
-                                        }
-
-                                        push_edge(g, bt.id, cfg_name, p, "link.libraries.path",
-                                                  cmake_id_to_target, cmake_name_to_target, extra);
+                                        push_edge(g, bt.id, cfg_name, p, "link.libraries.path", cmake_id_to_target, cmake_name_to_target);
                                     }
                                 }
                             }
@@ -447,46 +328,35 @@ namespace depbridge::ingest::cmake
                                 if (!frag.contains("fragment") || !frag.at("fragment").is_string())
                                     continue;
 
-                                const std::string fragment = frag.at("fragment").get<std::string>();
                                 const std::string role = (frag.contains("role") && frag.at("role").is_string())
                                                              ? frag.at("role").get<std::string>()
                                                              : std::string{};
+                                if (role != "libraries")
+                                    continue;
+
+                                const std::string fragment = frag.at("fragment").get<std::string>();
 
                                 for (const auto &tok : split_ws(fragment))
                                 {
-                                    std::vector<SourceRef> extra;
-                                    if (role == "libraries")
-                                    {
-                                        if (auto hit = detect_vcpkg_from_lib_path(tok))
-                                        {
-                                            extra.push_back(SourceRef{"vcpkg", "guess:" + hit->port + ":" + hit->triplet, std::nullopt});
-                                            extra.push_back(SourceRef{"vcpkg-path", hit->normalized_path, std::nullopt});
-                                        }
-                                    }
-
-                                    push_edge(g, bt.id, cfg_name, tok, "link.commandFragments.fragment",
-                                              cmake_id_to_target, cmake_name_to_target, extra);
+                                    push_edge(g, bt.id, cfg_name, tok, "link.commandFragments.fragment", cmake_id_to_target, cmake_name_to_target);
                                 }
                             }
                         }
                     }
                     catch (const std::exception &e)
                     {
-                        throw std::runtime_error(
-                            "Failed while processing target file '" + tgt_path.string() +
-                            "' at stage 'target processing': " + e.what());
+                        throw std::runtime_error("Failed while processing target file '" + tgt_path.string() +
+                                                 "' at stage 'target processing': " + e.what());
                     }
                 }
             }
         }
         catch (const std::exception &e)
         {
-            throw std::runtime_error(
-                "Failed while processing codemodel file '" + codemodel_path.string() +
-                "' at stage 'codemodel processing': " + e.what());
+            throw std::runtime_error("Failed while processing codemodel file '" + codemodel_path.string() +
+                                     "' at stage 'codemodel processing': " + e.what());
         }
 
         return g;
     }
-
 }
