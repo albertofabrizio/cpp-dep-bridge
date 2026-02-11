@@ -44,20 +44,37 @@ static void test_ingest_does_not_emit_guess_sources()
       "link": {
         "libraries": [
           {"path":"C:/vcpkg/installed/x64-windows/lib/fmtd.lib"}
+        ],
+        "commandFragments": [
+          {"fragment":"-DNDEBUG -O2 -g","role":"flags"},
+          {"fragment":"fmt::fmt","role":"libraries"}
         ]
       }
     })");
 
     auto g = depbridge::ingest::cmake::ingest_file_api(base, {});
     assert(!g.edges.empty());
+    bool saw_expected_library_fragment = false;
     for (const auto &edge : g.edges)
     {
+        if (edge.raw.has_value() && *edge.raw == "fmt::fmt")
+            saw_expected_library_fragment = true;
+
+        if (edge.raw.has_value())
+        {
+            assert(*edge.raw != "-DNDEBUG");
+            assert(*edge.raw != "-O2");
+            assert(*edge.raw != "-g");
+        }
+
         for (const auto &src : edge.sources)
         {
             assert(src.system != "vcpkg");
             assert(src.ref.find("guess:") == std::string::npos);
         }
     }
+
+    assert(saw_expected_library_fragment);
 
     fs::remove_all(base);
 }

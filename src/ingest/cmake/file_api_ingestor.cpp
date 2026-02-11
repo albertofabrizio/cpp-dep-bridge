@@ -328,6 +328,12 @@ namespace depbridge::ingest::cmake
                                 if (!frag.contains("fragment") || !frag.at("fragment").is_string())
                                     continue;
 
+                                const std::string role = (frag.contains("role") && frag.at("role").is_string())
+                                                             ? frag.at("role").get<std::string>()
+                                                             : std::string{};
+                                if (role != "libraries")
+                                    continue;
+
                                 const std::string fragment = frag.at("fragment").get<std::string>();
 
                                 for (const auto &tok : split_ws(fragment))
