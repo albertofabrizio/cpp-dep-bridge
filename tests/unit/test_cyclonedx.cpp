@@ -25,6 +25,7 @@ static ProjectGraph make_graph()
     app.type = ComponentType::executable;
     app.name = "app";
     app.origin = ComponentOrigin::project_local;
+    app.sources.push_back(SourceRef{"project-target", "app", std::nullopt});
     app.id = component_id_of(app);
     g.components[app.id.value] = app;
 
@@ -67,8 +68,23 @@ static void test_cyclonedx_contains_metadata_and_dependencies()
     assert(s.find("\"component\"") != std::string::npos);
 
     assert(s.find("\"dependencies\": [") != std::string::npos);
-    assert(s.find("\"dependsOn\": [\"" + g.components.begin()->first) != std::string::npos ||
-           s.find("\"dependsOn\": [\"cmp_") != std::string::npos);
+
+    std::string app_ref;
+    std::string fmt_ref;
+    for (const auto &[id, c] : g.components)
+    {
+        if (c.name == "app")
+            app_ref = id;
+        if (c.name == "fmt")
+            fmt_ref = id;
+    }
+
+    assert(!app_ref.empty());
+    assert(!fmt_ref.empty());
+
+    const std::string expected_dependency =
+        "\"ref\": \"" + app_ref + "\",\n      \"dependsOn\": [\"" + fmt_ref + "\"]";
+    assert(s.find(expected_dependency) != std::string::npos);
 }
 
 int main()
