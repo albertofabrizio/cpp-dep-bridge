@@ -50,7 +50,8 @@ static void test_third_party_imported_target()
     ProjectGraph g;
 
     Component c;
-    c.name = "fmt::fmt";
+    c.name = "fmt";
+    c.sources.push_back(SourceRef{"cmake-imported", "fmt::fmt", std::nullopt});
     c.id = component_id_of(c);
     g.components[c.id.value] = c;
 
@@ -96,6 +97,22 @@ static void test_third_party_does_not_override()
     assert(g.components[sys.id.value].origin == ComponentOrigin::system);
 }
 
+
+static void test_ambiguous_remains_unknown_without_evidence()
+{
+    ProjectGraph g;
+
+    Component c;
+    c.name = "maybe_external";
+    c.id = component_id_of(c);
+    g.components[c.id.value] = c;
+
+    classify_system_components(g);
+    classify_third_party_components(g);
+
+    assert(g.components[c.id.value].origin == ComponentOrigin::unknown);
+}
+
 int main()
 {
     ProjectGraph g;
@@ -133,6 +150,7 @@ int main()
     test_third_party_imported_target();
     test_third_party_source_ref();
     test_third_party_does_not_override();
+    test_ambiguous_remains_unknown_without_evidence();
 
     return 0;
 }

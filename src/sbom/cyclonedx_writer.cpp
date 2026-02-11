@@ -1,6 +1,10 @@
 #include "depbridge/sbom/cyclonedx_writer.hpp"
 
+#include "depbridge/version.hpp"
+
 #include <algorithm>
+#include <map>
+#include <set>
 
 namespace depbridge::sbom
 {
@@ -9,7 +13,6 @@ namespace depbridge::sbom
 
     namespace
     {
-
         std::string json_escape(const std::string &s)
         {
             std::string out;
@@ -69,6 +72,21 @@ namespace depbridge::sbom
             return "library";
         }
 
+        std::optional<const Component *> resolve_metadata_subject(const ProjectGraph &g)
+        {
+            for (const auto &[_, t] : g.targets)
+            {
+                for (const auto &[__, c] : g.components)
+                {
+                    if (c.name == t.name)
+                    {
+                        return &c;
+                    }
+                }
+            }
+            return std::nullopt;
+        }
+
     } // namespace
 
     void write_cyclonedx_json(std::ostream &os, const ProjectGraph &g)
@@ -80,11 +98,36 @@ namespace depbridge::sbom
             comps.push_back(&c);
         }
 
-        std::sort(comps.begin(), comps.end(),
-                  [](const Component *a, const Component *b)
-                  {
-                      return a->id.value < b->id.value;
-                  });
+        std::sort(comps.begin(), comps.end(), [](const Component *a, const Component *b)
+                  { return a->id.value < b->id.value; });
+
+        std::map<std::string, std::set<std::string>> dependencies;
+        std::map<std::string, std::set<std::string>> target_to_components;
+
+        for (const auto &edge : g.edges)
+        {
+            if (edge.to_component)
+            {
+                target_to_components[edge.from.value].insert(edge.to_component->value);
+            }
+        }
+
+        for (const auto &[target_id, dep_components] : target_to_components)
+        {
+            const auto target_it = g.targets.find(target_id);
+            if (target_it == g.targets.end())
+                continue;
+
+            for (const auto &[_, component] : g.components)
+            {
+                if (component.name != target_it->second.name)
+                    continue;
+
+                auto &deps = dependencies[component.id.value];
+                deps.insert(dep_components.begin(), dep_components.end());
+                deps.erase(component.id.value);
+            }
+        }
 
         os << "{\n";
         indent(os, 2);
@@ -94,7 +137,6 @@ namespace depbridge::sbom
         indent(os, 2);
         os << "\"version\": 1,\n";
 
-        // Metadata
         indent(os, 2);
         os << "\"metadata\": {\n";
         indent(os, 4);
@@ -104,13 +146,29 @@ namespace depbridge::sbom
         indent(os, 6);
         os << "\"name\": \"cpp-dep-bridge\",\n";
         indent(os, 6);
-        os << "\"version\": \"0.1.0-dev\"\n";
+        os << "\"version\": \"" << json_escape(depbridge::version) << "\"\n";
         indent(os, 4);
-        os << "}]\n";
+        os << "}]";
+
+        if (const auto subject = resolve_metadata_subject(g); subject.has_value())
+        {
+            os << ",\n";
+            indent(os, 4);
+            os << "\"component\": {\n";
+            indent(os, 6);
+            os << "\"type\": \"" << component_type_to_cdx((*subject.value())->type) << "\",\n";
+            indent(os, 6);
+            os << "\"bom-ref\": \"" << json_escape((*subject.value())->id.value) << "\",\n";
+            indent(os, 6);
+            os << "\"name\": \"" << json_escape((*subject.value())->name) << "\"\n";
+            indent(os, 4);
+            os << "}";
+        }
+
+        os << "\n";
         indent(os, 2);
         os << "},\n";
 
-        // Components
         indent(os, 2);
         os << "\"components\": [\n";
 
@@ -162,6 +220,48 @@ namespace depbridge::sbom
             os << "}";
 
             if (i + 1 < comps.size())
+                os << ",";
+            os << "\n";
+        }
+
+        indent(os, 2);
+        os << "],\n";
+
+        indent(os, 2);
+        os << "\"dependencies\": [\n";
+
+        std::vector<std::string> dep_refs;
+        dep_refs.reserve(comps.size());
+        for (const auto *comp : comps)
+            dep_refs.push_back(comp->id.value);
+
+        for (std::size_t i = 0; i < dep_refs.size(); ++i)
+        {
+            const auto &ref = dep_refs[i];
+            indent(os, 4);
+            os << "{\n";
+            indent(os, 6);
+            os << "\"ref\": \"" << json_escape(ref) << "\",\n";
+            indent(os, 6);
+            os << "\"dependsOn\": [";
+
+            std::vector<std::string> sorted_deps;
+            if (const auto it = dependencies.find(ref); it != dependencies.end())
+            {
+                sorted_deps.assign(it->second.begin(), it->second.end());
+            }
+
+            for (std::size_t di = 0; di < sorted_deps.size(); ++di)
+            {
+                if (di > 0)
+                    os << ", ";
+                os << "\"" << json_escape(sorted_deps[di]) << "\"";
+            }
+
+            os << "]\n";
+            indent(os, 4);
+            os << "}";
+            if (i + 1 < dep_refs.size())
                 os << ",";
             os << "\n";
         }

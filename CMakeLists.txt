@@ -90,6 +90,7 @@ target_sources(depbridge_core
     src/model/ids.cpp
     src/model/normalize.cpp
     src/model/classify.cpp
+    src/model/evidence.cpp
 
     # Phase 5
     src/sbom/cyclonedx_writer.cpp
@@ -108,6 +109,7 @@ target_sources(depbridge_core
     include/depbridge/model/ids.hpp
     include/depbridge/model/normalize.hpp
     include/depbridge/model/classify.hpp
+    include/depbridge/model/evidence.hpp
     include/depbridge/model/filter.hpp
     include/depbridge/model/variant_normalize.hpp
 
