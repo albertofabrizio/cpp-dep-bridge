@@ -17,6 +17,9 @@ static void test_system_classification()
 #else
     sys.name = "pthread";
 #endif
+    // v0.4 classification is evidence-gated: known system names only classify
+    // when we also have explicit system/link evidence.
+    sys.sources.push_back(SourceRef{"cmake-link-token", sys.name, std::nullopt});
     sys.id = component_id_of(sys);
     g.components[sys.id.value] = sys;
 
@@ -33,13 +36,7 @@ static void test_system_classification()
 
     classify_system_components(g);
 
-#if defined(_WIN32)
     assert(g.components[sys.id.value].origin == ComponentOrigin::system);
-#else
-    assert(
-        g.components[sys.id.value].origin == ComponentOrigin::system ||
-        g.components[sys.id.value].origin == ComponentOrigin::unknown);
-#endif
 
     assert(g.components[proj.id.value].origin == ComponentOrigin::project_local);
     assert(g.components[third.id.value].origin == ComponentOrigin::unknown);
@@ -50,7 +47,8 @@ static void test_third_party_imported_target()
     ProjectGraph g;
 
     Component c;
-    c.name = "fmt::fmt";
+    c.name = "fmt";
+    c.sources.push_back(SourceRef{"cmake-imported", "fmt::fmt", std::nullopt});
     c.id = component_id_of(c);
     g.components[c.id.value] = c;
 
@@ -96,6 +94,52 @@ static void test_third_party_does_not_override()
     assert(g.components[sys.id.value].origin == ComponentOrigin::system);
 }
 
+
+static void test_ambiguous_remains_unknown_without_evidence()
+{
+    ProjectGraph g;
+
+    Component c;
+    c.name = "maybe_external";
+    c.id = component_id_of(c);
+    g.components[c.id.value] = c;
+
+    classify_system_components(g);
+    classify_third_party_components(g);
+
+    assert(g.components[c.id.value].origin == ComponentOrigin::unknown);
+}
+
+
+static void test_project_local_classification_with_lib_prefix_token()
+{
+    ProjectGraph g;
+
+    BuildTarget t;
+    t.id = TargetId{"t:depbridge_core"};
+    t.name = "depbridge_core";
+    g.targets.emplace(t.id.value, t);
+
+    DependencyEdge e;
+    e.from = t.id;
+    e.raw = "libdepbridge_core";
+    g.edges.push_back(e);
+
+    normalize_graph(g);
+    classify_project_local_components(g);
+
+    bool found = false;
+    for (const auto &[_, c] : g.components)
+    {
+        if (c.name == "depbridge_core")
+        {
+            found = true;
+            assert(c.origin == ComponentOrigin::project_local);
+        }
+    }
+    assert(found);
+}
+
 int main()
 {
     ProjectGraph g;
@@ -133,6 +177,8 @@ int main()
     test_third_party_imported_target();
     test_third_party_source_ref();
     test_third_party_does_not_override();
+    test_ambiguous_remains_unknown_without_evidence();
+    test_project_local_classification_with_lib_prefix_token();
 
     return 0;
 }
