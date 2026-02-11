@@ -17,6 +17,9 @@ static void test_system_classification()
 #else
     sys.name = "pthread";
 #endif
+    // v0.4 classification is evidence-gated: known system names only classify
+    // when we also have explicit system/link evidence.
+    sys.sources.push_back(SourceRef{"cmake-link-token", sys.name, std::nullopt});
     sys.id = component_id_of(sys);
     g.components[sys.id.value] = sys;
 
@@ -33,13 +36,7 @@ static void test_system_classification()
 
     classify_system_components(g);
 
-#if defined(_WIN32)
     assert(g.components[sys.id.value].origin == ComponentOrigin::system);
-#else
-    assert(
-        g.components[sys.id.value].origin == ComponentOrigin::system ||
-        g.components[sys.id.value].origin == ComponentOrigin::unknown);
-#endif
 
     assert(g.components[proj.id.value].origin == ComponentOrigin::project_local);
     assert(g.components[third.id.value].origin == ComponentOrigin::unknown);
