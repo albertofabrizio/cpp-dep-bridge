@@ -36,4 +36,7 @@ namespace depbridge::model
 
     ComponentId component_id_of(const Component &c);
 
+    std::string canonical_component_key_of(const Component &c);
+
+
 }

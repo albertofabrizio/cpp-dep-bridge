@@ -1,9 +1,11 @@
 #include "depbridge/model/normalize.hpp"
 #include "depbridge/model/ids.hpp"
+#include "depbridge/model/evidence.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <unordered_map>
+#include <stdexcept>
 
 namespace depbridge::model
 {
@@ -168,7 +170,7 @@ namespace depbridge::model
         c.type = ComponentType::library;
 
         const std::string tok = normalize_token(raw_token);
-        c.sources.push_back(SourceRef{"link-token", tok, std::nullopt});
+        c.sources.push_back(SourceRef{"cmake-link-token", tok, std::nullopt});
 
         if (tok.empty())
         {
@@ -189,6 +191,7 @@ namespace depbridge::model
         {
             const std::string p = normalize_path(tok);
             c.name = normalize_lib_name_from_file(p, opt);
+            c.sources.push_back(SourceRef{"cmake-link-path", p, std::nullopt});
             c.id = make_component_id(c.type, "", c.name, "", "");
             return c;
         }
@@ -196,11 +199,11 @@ namespace depbridge::model
         if (is_imported_cmake_target(tok))
         {
             c.type = ComponentType::library;
-            c.name = tok;
+            c.name = imported_target_namespace(tok);
 
             c.properties.emplace("cmake.target", tok);
             c.properties.emplace("cmake.target.namespace", imported_target_namespace(tok));
-            c.sources.push_back(SourceRef{"cmake", "imported-target", std::nullopt});
+            c.sources.push_back(SourceRef{"cmake-imported", tok, std::nullopt});
 
             c.id = make_component_id(c.type, "", c.name, "", "");
             return c;
@@ -211,7 +214,6 @@ namespace depbridge::model
             name = strip_ext(name, opt);
             if (opt.case_fold_windows_libs)
                 name = to_lower_ascii(name);
-            name = strip_unix_libprefix(name, opt);
             c.name = name;
             c.id = make_component_id(c.type, "", c.name, "", "");
             return c;
@@ -326,7 +328,9 @@ namespace depbridge::model
 
                     if (bt.name.find("::") != std::string::npos)
                     {
-                        c.name = bt.name;
+                        c.name = imported_target_namespace(bt.name);
+                        c.properties["cmake.target"] = bt.name;
+                        c.sources.push_back(SourceRef{"cmake-imported", bt.name, std::nullopt});
                     }
 
                     append_sources(c.sources, bt.sources);
@@ -369,6 +373,14 @@ namespace depbridge::model
             }
             else
             {
+                const std::string existing_key = canonical_component_key_of(it->second);
+                const std::string incoming_key = canonical_component_key_of(comp);
+                if (existing_key != incoming_key)
+                {
+                    throw std::runtime_error(
+                        "Component identity collision detected for id '" + new_key +
+                        "' with differing canonical keys");
+                }
                 merge_component(it->second, comp);
             }
         }

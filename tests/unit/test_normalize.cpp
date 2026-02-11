@@ -30,7 +30,8 @@ static void test_token_to_component_cmake_target_passthrough()
 {
     NormalizeOptions opt;
     auto c = component_from_link_token("OpenSSL::SSL", opt);
-    assert(c.name == "OpenSSL::SSL");
+    assert(c.name == "OpenSSL");
+    assert(c.properties.at("cmake.target") == "OpenSSL::SSL");
     assert(c.type == ComponentType::library);
 }
 
@@ -109,13 +110,13 @@ static void test_imported_cmake_targets_create_components()
     NormalizeOptions opt;
     normalize_graph(g, opt);
 
-    // We should get one component per imported target (no namespace collapsing).
+    // Imported targets normalize to package-level components.
     assert(g.components.size() == 2);
 
     {
         Component c;
         c.type = ComponentType::library;
-        c.name = "fmt::fmt";
+        c.name = "fmt";
         const ComponentId expected = component_id_of(c);
         assert(g.components.count(expected.value) == 1);
     }
@@ -123,7 +124,7 @@ static void test_imported_cmake_targets_create_components()
     {
         Component c;
         c.type = ComponentType::library;
-        c.name = "nlohmann_json::nlohmann_json";
+        c.name = "nlohmann_json";
         const ComponentId expected = component_id_of(c);
         assert(g.components.count(expected.value) == 1);
     }
@@ -136,6 +137,17 @@ static void test_imported_cmake_targets_create_components()
     assert(g.components.count(g.edges[1].to_component->value) == 1);
 }
 
+
+static void test_ambiguous_non_path_tokens_do_not_collapse()
+{
+    NormalizeOptions opt;
+    auto a = component_from_link_token("libcrypto", opt);
+    auto b = component_from_link_token("crypto", opt);
+    assert(a.name == "libcrypto");
+    assert(b.name == "crypto");
+    assert(a.id.value != b.id.value);
+}
+
 int main()
 {
     test_token_to_component_unix_dash_l();
@@ -144,6 +156,7 @@ int main()
     test_merge_component_fills_missing();
     test_normalize_graph_merges_duplicates_and_remaps_edges();
     test_imported_cmake_targets_create_components();
+    test_ambiguous_non_path_tokens_do_not_collapse();
 
     std::cout << "[unit] normalize: OK\n";
     return 0;
