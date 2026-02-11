@@ -156,11 +156,12 @@ namespace depbridge::sbom
             indent(os, 4);
             os << "\"component\": {\n";
             indent(os, 6);
-            os << "\"type\": \"" << component_type_to_cdx((*subject.value())->type) << "\",\n";
+            const Component *subject_component = *subject;
+            os << "\"type\": \"" << component_type_to_cdx(subject_component->type) << "\",\n";
             indent(os, 6);
-            os << "\"bom-ref\": \"" << json_escape((*subject.value())->id.value) << "\",\n";
+            os << "\"bom-ref\": \"" << json_escape(subject_component->id.value) << "\",\n";
             indent(os, 6);
-            os << "\"name\": \"" << json_escape((*subject.value())->name) << "\"\n";
+            os << "\"name\": \"" << json_escape(subject_component->name) << "\"\n";
             indent(os, 4);
             os << "}";
         }
